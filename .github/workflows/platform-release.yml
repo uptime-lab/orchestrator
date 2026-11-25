@@ -1,0 +1,465 @@
+name: Platform release
+
+# Builds and publishes the server images (backend, frontend, eeprom-signer)
+# for a `platform-v*` tag: each architecture natively on a runner of that
+# architecture (no emulation), pushed by digest, then merged into one
+# multi-architecture manifest list per image, attested, and recorded; then
+# the tag's GitHub Release is created, which is what the one-command
+# installer resolves its default version from.
+#
+# The image tag is the version without the `v` (`platform-v1.2.3` publishes
+# `:1.2.3`). `latest` moves only for a final release, and only after all
+# three images of that release exist: a pre-release tag
+# (`platform-v1.2.3-rc1`) publishes `:1.2.3-rc1` and leaves `latest` alone.
+#
+# Runners come from repository variables with hosted fallbacks, as in the
+# other workflows (CONTRIBUTING.md): PUBLIC_CI_RUNS_ON_AMD64 and
+# PUBLIC_CI_RUNS_ON_ARM64 for the two native builds, PUBLIC_CI_RUNS_ON for
+# the rest. Unset, every job runs on a GitHub-hosted runner.
+#
+# Trust boundary. A tag push runs this file AS IT IS AT THE TAGGED COMMIT, so
+# nothing written here can be the boundary on its own: a commit that edits
+# this file and is then tagged runs the edited copy. What decides who can
+# publish is outside the file — the tag ruleset that restricts who may create
+# `platform-v*`, the `release` environment's reviewers and its tag rule, and
+# the registry packages' own access list. This file adds two things on top:
+# the `gate` job refuses a tag whose commit is not on `main` or whose name is
+# not a version, before any job holds `packages: write`, and every job that
+# does hold it names the `release` environment. The only credential used is
+# the workflow's own GITHUB_TOKEN.
+#
+# Image names are explicit rather than derived from the repository name: the
+# compose files pull them by name, and a rename of the repository must not
+# silently change what an install pulls.
+
+on:
+  push:
+    tags:
+      - 'platform-v*'
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_PREFIX: ghcr.io/uptime-lab/orchestrator
+
+jobs:
+  # Holds no write permission and no environment. Everything else needs it.
+  gate:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      latest: ${{ steps.version.outputs.latest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # A release is cut from history that went through review. A tag on a
+      # commit `main` does not contain is refused, whoever pushed it. The
+      # full-depth checkout above fetched `main`.
+      - name: The tagged commit is on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "::error::$GITHUB_REF_NAME points at $GITHUB_SHA, which is not on main"
+            exit 1
+          fi
+      # MAJOR.MINOR.PATCH with an optional pre-release part. Build metadata
+      # (`+…`) is refused: it is not a legal image tag.
+      - id: version
+        name: The tag is platform-v<version>
+        run: |
+          TAG=$GITHUB_REF_NAME
+          VERSION=${TAG#platform-v}
+          if [ "$VERSION" = "$TAG" ] || ! printf '%s\n' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'; then
+            echo "::error::$TAG is not platform-v<MAJOR.MINOR.PATCH[-pre-release]>"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # A pre-release (1.2.3-rc1) must not become what `latest` pulls.
+          case "$VERSION" in
+            *-*) echo "latest=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "latest=true" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+  build-amd64:
+    needs: gate
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, frontend, eeprom-signer]
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON_AMD64 || '["ubuntu-24.04"]') }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Labels only; a by-digest push carries no tag, or each architecture
+      # would race to own one. The version label is the image tag's.
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
+          flavor: latest=false
+          tags: type=raw,value=${{ needs.gate.outputs.version }}
+      # No build cache: a cache written by a tag's run is readable by that
+      # tag alone, so a release could never hit one, and an export that the
+      # cache service refuses would fail a release whose image had built.
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ./${{ matrix.image }}
+          file: ./${{ matrix.image }}/Dockerfile
+          platforms: linux/amd64
+          labels: ${{ steps.meta.outputs.labels }}
+          # PLATFORM_VERSION only where the Dockerfile declares it: the
+          # backend stamps it into the binary as the server version.
+          build-args: |
+            GIT_REVISION=${{ github.sha }}
+            ${{ matrix.image == 'backend' && format('PLATFORM_VERSION={0}', needs.gate.outputs.version) || '' }}
+          sbom: true
+          provenance: mode=max
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+      - name: Export digest
+        run: |
+          rm -rf "${{ runner.temp }}/digests"
+          mkdir -p "${{ runner.temp }}/digests"
+          digest='${{ steps.build.outputs.digest }}'
+          [ -n "$digest" ] || { echo "::error::build produced no digest"; exit 1; }
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digest-${{ matrix.image }}-amd64
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+  build-arm64:
+    needs: gate
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, frontend, eeprom-signer]
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON_ARM64 || '["ubuntu-24.04-arm"]') }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Labels only; a by-digest push carries no tag, or each architecture
+      # would race to own one. The version label is the image tag's.
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
+          flavor: latest=false
+          tags: type=raw,value=${{ needs.gate.outputs.version }}
+      # No build cache: a cache written by a tag's run is readable by that
+      # tag alone, so a release could never hit one, and an export that the
+      # cache service refuses would fail a release whose image had built.
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ./${{ matrix.image }}
+          file: ./${{ matrix.image }}/Dockerfile
+          platforms: linux/arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          # PLATFORM_VERSION only where the Dockerfile declares it: the
+          # backend stamps it into the binary as the server version.
+          build-args: |
+            GIT_REVISION=${{ github.sha }}
+            ${{ matrix.image == 'backend' && format('PLATFORM_VERSION={0}', needs.gate.outputs.version) || '' }}
+          sbom: true
+          provenance: mode=max
+          outputs: type=image,name=${{ env.IMAGE_PREFIX }}/${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+      - name: Export digest
+        run: |
+          rm -rf "${{ runner.temp }}/digests"
+          mkdir -p "${{ runner.temp }}/digests"
+          digest='${{ steps.build.outputs.digest }}'
+          [ -n "$digest" ] || { echo "::error::build produced no digest"; exit 1; }
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: digest-${{ matrix.image }}-arm64
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: true
+
+  merge:
+    needs: [gate, build-amd64, build-arm64]
+    environment: release
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [backend, frontend, eeprom-signer]
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - run: rm -rf "${{ runner.temp }}/digests"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: digest-${{ matrix.image }}-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/digests
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Refuse a manifest list missing an architecture: a single-architecture
+      # tag is discovered only at `docker compose up` on the other one.
+      - name: Both architectures must be present
+        run: |
+          count=$(find "${{ runner.temp }}/digests" -type f | wc -l)
+          if [ "$count" -ne 2 ]; then
+            echo "::error::expected 2 per-architecture digests for ${{ matrix.image }}, found $count"
+            exit 1
+          fi
+      # The version tag only. `latest` is moved by its own job, once, after
+      # all three images of the release exist.
+      - name: Create and push the manifest list
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          IMAGE: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
+          VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Word splitting is the point: one argument per digest.
+          # shellcheck disable=SC2046
+          docker buildx imagetools create -t "$IMAGE:$VERSION" \
+            $(for f in *; do printf '%s@sha256:%s ' "$IMAGE" "$f"; done)
+      - id: manifest
+        env:
+          IMAGE: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
+          VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          set -euo pipefail
+          # The digest of a manifest list is the sha256 of its bytes as the
+          # registry serves them; computing it does not depend on how a
+          # given buildx renders `--format`.
+          digest="sha256:$(docker buildx imagetools inspect "$IMAGE:$VERSION" --raw | sha256sum | cut -d' ' -f1)"
+          case "$digest" in
+            sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855)
+              echo "::error::the registry returned an empty manifest for $IMAGE:$VERSION"; exit 1 ;;
+          esac
+          printf '%s\n' "$digest" | grep -Eq '^sha256:[0-9a-f]{64}$' || { echo "::error::not a digest: $digest"; exit 1; }
+          # The name by digest must resolve to the same list, or the recorded
+          # digest is not the one an install can pin.
+          docker buildx imagetools inspect "$IMAGE@$digest" --raw >/dev/null
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          docker buildx imagetools inspect "$IMAGE:$VERSION"
+      # Artifact attestations exist for public repositories only; a private
+      # copy of this repository still publishes, without one.
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: github.event.repository.private == false
+        with:
+          subject-name: ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          push-to-registry: true
+      # The digest is the only immutable name the image has; recording it is
+      # what makes a digest-pinned deploy possible.
+      - name: Record the published digest
+        run: |
+          {
+            echo "### ${{ matrix.image }}"
+            echo
+            echo "digest: \`${{ steps.manifest.outputs.digest }}\`"
+            echo "commit: \`${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # `latest` for all three images or for none: this job runs only when every
+  # merge succeeded, so `latest` never names a backend of one release beside
+  # a signer of another. A failure half way is repaired by re-running the job.
+  # Only this job is serialised — two releases may build together, but their
+  # moves of `latest` must not interleave — and `latest` never moves back: a
+  # patch release on an older line leaves it where it is.
+  latest:
+    needs: [gate, merge]
+    if: needs.gate.outputs.latest == 'true'
+    environment: release
+    concurrency:
+      group: platform-release-latest
+      cancel-in-progress: false
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: highest
+        name: This release is the highest final version
+        env:
+          VERSION: ${{ needs.gate.outputs.version }}
+        # Compared number by number in Python (`sort -V` is not in every
+        # sort), by the same rule as the github-release job.
+        run: |
+          set -euo pipefail
+          highest=$(git tag -l 'platform-v*' | python3 -c '
+          import re, sys
+          finals = [t[len("platform-v"):] for t in sys.stdin.read().split()
+                    if re.fullmatch(r"platform-v[0-9]+\.[0-9]+\.[0-9]+", t)]
+          print(max(finals, key=lambda v: tuple(map(int, v.split("."))), default=""))')
+          if [ "$highest" = "$VERSION" ]; then
+            echo "move=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "move=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::latest is not moved: $VERSION is not the highest final version ($highest is)"
+          fi
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.highest.outputs.move == 'true'
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        if: steps.highest.outputs.move == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Move latest to this release
+        if: steps.highest.outputs.move == 'true'
+        env:
+          VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          set -euo pipefail
+          for image in backend frontend eeprom-signer; do
+            docker buildx imagetools inspect "$IMAGE_PREFIX/$image:$VERSION" --raw >/dev/null
+          done
+          for image in backend frontend eeprom-signer; do
+            docker buildx imagetools create -t "$IMAGE_PREFIX/$image:latest" "$IMAGE_PREFIX/$image:$VERSION"
+          done
+
+  # The GitHub Release of the tag, created once all three images exist. The
+  # installer (tools/install/install.sh) takes its default version from the
+  # repository's latest Release, so a final release that is the highest
+  # final version is marked latest; an older line's patch is not, and a
+  # pre-release is published as one and never marked latest (the installer
+  # installs it only with --version or --prerelease). The REST API through
+  # Python's standard library rather than `gh` or curl: a runner named by
+  # PUBLIC_CI_RUNS_ON need have neither, while python3 and git are what the
+  # guard workflow already runs on that runner. A failed call fails the job
+  # with the status and the answer's body. Re-running the job leaves an existing Release as it is.
+  github-release:
+    needs: [gate, merge]
+    environment: release
+    concurrency:
+      group: platform-release-github-release
+      cancel-in-progress: false
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API: ${{ github.api_url }}/repos/${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.gate.outputs.version }}
+          FINAL: ${{ needs.gate.outputs.latest }}
+        # The token reaches Python through the environment, never a command
+        # line, and is sent only in a request header.
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess, sys, urllib.error, urllib.request
+
+          api, tag, version = os.environ["API"], os.environ["TAG"], os.environ["VERSION"]
+          final = os.environ["FINAL"] == "true"
+          prefix = os.environ["IMAGE_PREFIX"]
+          headers = {
+              "Authorization": "Bearer " + os.environ["GH_TOKEN"],
+              "Accept": "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28",
+          }
+
+          def call(method, url, body=None):
+              data = None if body is None else json.dumps(body).encode()
+              req = urllib.request.Request(url, data=data, method=method, headers=headers)
+              if data is not None:
+                  req.add_header("Content-Type", "application/json")
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as resp:
+                      return resp.status, resp.read().decode("utf-8", "replace")
+              except urllib.error.HTTPError as err:
+                  return err.code, err.read().decode("utf-8", "replace")
+              except urllib.error.URLError as err:
+                  print(f"::error::{method} {url} failed: {err.reason}")
+                  sys.exit(1)
+
+          def fail(what, status, text):
+              print(f"::error::{what} answered HTTP {status}")
+              print(text)
+              sys.exit(1)
+
+          status, text = call("GET", f"{api}/releases/tags/{tag}")
+          if status == 200:
+              print(f"::notice::a GitHub Release for {tag} already exists; left as it is")
+              sys.exit(0)
+          if status != 404:
+              fail(f"looking up the Release for {tag}", status, text)
+
+          # The highest final version, compared number by number; the same
+          # rule as the `latest` job, so the Release marked latest and the
+          # `latest` image tag name the same version.
+          tags = subprocess.run(["git", "tag", "-l", "platform-v*"], check=True,
+                                capture_output=True, text=True).stdout.split()
+          finals = [t[len("platform-v"):] for t in tags
+                    if re.fullmatch(r"platform-v[0-9]+\.[0-9]+\.[0-9]+", t)]
+          if final and version not in finals:
+              print(f"::error::the checkout has no tag {tag}, so the highest final version cannot be told")
+              sys.exit(1)
+          highest = max(finals, key=lambda v: tuple(map(int, v.split("."))), default="")
+          prerelease = not final
+          make_latest = final and highest == version
+
+          images = ", ".join(f"`{prefix}/{image}:{version}`" for image in ("backend", "frontend", "eeprom-signer"))
+          status, text = call("POST", f"{api}/releases", {
+              "tag_name": tag,
+              "name": f"Platform {version}",
+              "body": f"Server images: {images}. Install and upgrade: docs/INSTALL.md.",
+              "draft": False,
+              "prerelease": prerelease,
+              "make_latest": "true" if make_latest else "false",
+          })
+          if status != 201:
+              fail(f"creating the Release for {tag}", status, text)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(f"### GitHub Release\n\n`{tag}`: prerelease={str(prerelease).lower()}, "
+                            f"latest={str(make_latest).lower()}\n")
+          PY

@@ -1,0 +1,50 @@
+id: kiosk
+name: Kiosk display
+description: >-
+  Shows one URL fullscreen on the node's HDMI output, for menus, dashboards
+  or signage. Runs as a container; Docker is set up on the node with it.
+details: >-
+  Keyboard and mouse are disabled on the kiosk, and updating or removing it
+  does not change the OS. For a different URL on one node, add a node-scoped
+  assignment; it overrides the OU or account-wide assignment.
+class: reconciled
+depends_on: [docker]
+params:
+  - name: url
+    label: URL
+    description: The page to display, http(s).
+    type: string
+    required: true
+    placeholder: "https://example.com/menu"
+  # The platform's own images only (github.com/uptime-lab/orchestrator-images).
+  # The agent's health probe and the screen capture are written against this
+  # image's contract — DevTools on 127.0.0.1:9222, cage's Wayland socket — so
+  # an arbitrary image would read as failed even when it draws. A release of
+  # the image adds its tag here; the newest is the default.
+  #
+  # A tag, not a digest: the image repository has the same publisher as this
+  # one, so whoever can retag it can already change the platform itself;
+  # pinning would cost a catalog commit plus a backend deploy per image
+  # release. If the publisher ever differs, pin `tag@sha256:…` AND migrate the
+  # stored assignment values with it — a stored value outside enum_values
+  # fails every apply with "invalid utility config".
+  - name: image
+    label: Kiosk image
+    description: >-
+      Which release of the platform's kiosk image runs on the node.
+    details: >-
+      Built from github.com/uptime-lab/orchestrator-images and pulled by the
+      device anonymously. Keep a unit on one release; change it here to roll
+      the fleet forward or back.
+    type: enum
+    required: true
+    default: "ghcr.io/uptime-lab/orchestrator-kiosk:0.1.0"
+    enum_values:
+      - "ghcr.io/uptime-lab/orchestrator-kiosk:0.1.0"
+  - name: headless
+    label: Headless test mode
+    description: >-
+      Renders in software with no display attached, for testing only. Leave
+      off for a real kiosk.
+    type: bool
+    default: false

@@ -1,0 +1,30 @@
+{
+  "name": "orchestrator-frontend",
+  "dockerFile": "Dockerfile",
+  "context": "..",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "mhutchie.git-graph",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "redhat.vscode-xml"
+      ],
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/sh",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        }
+      }
+    }
+  },
+  "containerUser": "node",
+  "updateRemoteUserUID": true,
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "type=bind,source=${localWorkspaceFolder}/,target=/workspace",
+  "appPort": [
+    "5174:5174"
+  ]
+}

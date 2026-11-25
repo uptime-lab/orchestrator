@@ -1,0 +1,164 @@
+# Dependabot UPDATES. Alerts are on by default; this file is the other half —
+# without it alerts accumulate with no pull request to close any of them.
+#
+# THREE THINGS TO KNOW BEFORE EDITING THIS FILE.
+#
+# 1. A pnpm lockfile conflict is not resolvable by hand. While a branch rewrites
+#    frontend/pnpm-lock.yaml wholesale, exclude `/frontend` from `npm` for its
+#    duration; a robot opening exactly such branches weekly would lose that
+#    work. It is the LARGEST dependency tree in the repository, so put it back
+#    as soon as the rewrite lands.
+#
+# 2. Every pull request costs a full CI run, and a rebase is a full re-run.
+#    `open-pull-requests-limit` is 2 rather than the default 5-per-entry — with
+#    five entries the default would permit 25 open PRs — and
+#    `rebase-strategy: disabled` for the same reason.
+#
+# 3. The schedule is MONDAY MORNING on purpose: a batch lands when somebody is
+#    present to look at it. A 03:00 cron puts PR traffic on machines nobody is
+#    watching.
+#
+# WHAT NO SCANNER COVERS, so the gap is stated rather than assumed:
+#   - the boot image (buildroot) lives in a separate repository and cannot be
+#     reached from here at all
+#   - eeprom-signer's Python dependency (pycryptodomex, in the container that
+#     holds the EEPROM signing key) is hash-pinned in
+#     eeprom-signer/requirements.txt and watched by the `pip` entry below; an
+#     unpinned `pip install` in a Dockerfile has no manifest for any ecosystem
+#     to see
+#   - every Dockerfile base image is pinned tag@sha256, so Dependabot's docker
+#     entry below keeps the digests moving; take digests from
+#     `docker buildx imagetools inspect` (manifest-LIST digests, so one pin
+#     serves both amd64 and arm64 builds)
+
+version: 2
+
+updates:
+  # ---------------------------------------------------------------- Go modules
+  # Four modules, no workspace, separate go.mod each. Dependabot reads each
+  # manifest rather than building it, so tools/agent-signer is covered here
+  # without the cgo + libpcsclite-dev toolchain it needs to build; its
+  # vulnerability scan is security.yml's govulncheck-agent-signer job, which
+  # installs that toolchain.
+  - package-ecosystem: gomod
+    directories:
+      - /backend
+      - /agent
+      - /tools/agent-signer
+      - /tools/entitlement-signer
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 2
+    rebase-strategy: disabled
+    groups:
+      go-dependencies:
+        patterns: ["*"]
+
+  # --------------------------------------------------------------------- npm
+  # The frontend pins exact versions, which is why it needs the robot more, not
+  # less: an exact pin never drifts forward on its own (see note 1).
+  - package-ecosystem: npm
+    directories:
+      - /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 2
+    rebase-strategy: disabled
+    groups:
+      npm-dependencies:
+        patterns: ["*"]
+
+  # ---------------------------------------------------------- GitHub Actions
+  # Every action here is SHA-pinned with a `# vN` comment and Dependabot updates
+  # both, which also converges the same "vN" pinned to different SHAs across
+  # workflows.
+  #
+  # One deliberate exception it must not "fix": security.yml runs
+  # govulncheck@latest unpinned, and the comment there explains why — pinning a
+  # vulnerability scanner freezes how it reads the advisory database, which is
+  # the thing that has to stay current. It is a `go run`, not a `uses:`, so
+  # Dependabot will not touch it.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 2
+    rebase-strategy: disabled
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # ------------------------------------------------------------------ Docker
+  # There is NO Dockerfile at the repository root, so `directory: /` would find
+  # nothing. Each directory is listed explicitly; entries covering two files
+  # (Dockerfile + Dockerfile.test) need only the directory.
+  #
+  # frontend/.devcontainer is included although it is dev-only and never
+  # shipped: a base image past end of life is still past end of life.
+  - package-ecosystem: docker
+    directories:
+      - /frontend
+      - /frontend/.devcontainer
+      - /backend
+      - /agent
+      - /eeprom-signer
+      # The kiosk image lives in its own repository and is watched by that
+      # repository's own Dependabot.
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 2
+    rebase-strategy: disabled
+    groups:
+      base-images:
+        patterns: ["*"]
+
+  # --------------------------------------------------------------------- pip
+  # eeprom-signer/requirements.txt hash-pins pycryptodomex, the only Python
+  # dependency of the container that holds the EEPROM signing key, and is the
+  # manifest the `pip` ecosystem watches (note above) — the one automated watch
+  # on that container's Python surface.
+  - package-ecosystem: pip
+    directory: /eeprom-signer
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 2
+    rebase-strategy: disabled
+    groups:
+      pip-dependencies:
+        patterns: ["*"]
+
+  # ---------------------------------------------------------- Docker Compose
+  # A SEPARATE ecosystem from `docker` above: that one reads Dockerfiles, this
+  # one reads compose files, and the two do not overlap. The compose files pin
+  # the reverse proxy — the internet-facing TLS terminator — and the database
+  # image to patch versions, and nothing else watches those pins.
+  #
+  # Note this still does not cover a workflow's `services:` postgres image,
+  # which neither `docker` nor `github-actions` reads.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 2
+    rebase-strategy: disabled
+    groups:
+      compose-images:
+        patterns: ["*"]

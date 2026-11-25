@@ -1,0 +1,49 @@
+id: tailscale
+name: Tailscale VPN
+description: >-
+  Joins the node to your Tailscale network. Use a single-use or short-lived
+  pre-auth key: any operator who can view the node can read the key's value.
+details: >-
+  Installed from the official package using Tailscale's signed apt
+  repository. A device already logged in by hand is refused, not taken over;
+  run "tailscale logout" on it first. Removing the assignment keeps Tailscale
+  installed and logged in.
+class: reconciled
+min_agent_version: "0.6.11"
+params:
+  - name: auth_key
+    label: Auth key
+    description: >-
+      Tailscale pre-auth key (tskey-...). Prefer single-use or short-lived:
+      it is needed for the first login only. To keep it from viewers, save
+      it as a variable and enter {{secrets.<name>}} here instead.
+    type: string
+    required: true
+    placeholder: "tskey-auth-..."
+    # Refused at SAVE for literals; a {{secrets.*}} reference skips the check
+    # and the agent validates the resolved value at apply. The hint exists
+    # because a key pasted with its CLI prefix (auth-key=tskey-...) would
+    # otherwise be refused only in the device's failure report.
+    pattern: "^tskey-"
+    pattern_hint: >-
+      paste only the key itself, starting with tskey- (without an auth-key=
+      prefix)
+
+  - name: hostname
+    label: Tailnet hostname
+    description: Machine name inside the tailnet. Empty keeps the device's own hostname.
+    type: string
+    required: false
+  - name: accept_routes
+    label: Accept subnet routes
+    description: Accept subnet routes advertised by other tailnet devices.
+    type: bool
+    default: false
+  - name: advertise_exit_node
+    label: Advertise as exit node
+    description: >-
+      Offer this node as a tailnet exit node (enables IP forwarding on the
+      device). Traffic flows only after you also approve the exit node in
+      the Tailscale admin console.
+    type: bool
+    default: false

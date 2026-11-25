@@ -1,0 +1,9 @@
+# Code owners: a change under these paths needs the owner's review before it
+# merges, where the repository's branch rules require review from code
+# owners. The publication guard's checker and the workflows that run it are
+# what a pull request would have to edit to read the guard's secrets, so a
+# second pair of eyes is the control. An author cannot approve their own pull
+# request, so an owner-authored change here needs another maintainer's
+# review.
+/.github/                 @merocle
+/tools/publication-guard/ @merocle

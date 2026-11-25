@@ -1,0 +1,14 @@
+# A CM5 / Pi 5 family board with a standard 40-pin header. Same catch-all
+# role as generic-cm4 for the BCM2712 generation. Note for module authors:
+# this family has a BUILT-IN RTC, which is why RTC probes match the driver
+# NAME (rtc_name_any) and never bare path existence.
+id: generic-cm5
+name: Generic CM5 / Pi 5 board
+description: CM5 or Pi 5 family board with a standard 40-pin GPIO header.
+fits: ["CM5", "CM5 Lite", "Pi 5", "Pi 500"]
+ports:
+  - id: gpio-header
+    name: GPIO header (40-pin)
+    pinout: rpi-40pin
+    pin_from: 1
+    pin_to: 40

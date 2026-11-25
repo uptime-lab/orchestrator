@@ -1,0 +1,72 @@
+# REUSE.toml — the machine-readable licence map of this repository
+# (https://reuse.software/spec-3.3/). LICENSE holds the human-readable table;
+# when the two disagree, this file wins and the table is the defect.
+#
+# Order matters: a later annotation overrides an earlier one for the paths it
+# matches (precedence = "closest" would consult per-file headers first; this
+# map uses "override" so that the directory decision cannot be undone by a
+# stray header). tools/publication-guard/check_licence_boundary.py reads this
+# file and fails CI when a path under an Apache directory resolves to anything
+# but Apache-2.0, or a file's own SPDX header disagrees with the map.
+
+version = 1
+SPDX-PackageName = "Uptime Orchestrator"
+SPDX-PackageSupplier = "Uptime Lab Inc."
+SPDX-PackageDownloadLocation = "https://github.com/uptime-lab/orchestrator"
+
+# Default: everything is Fair Core License 1.0 (ALv2 future licence).
+[[annotations]]
+path = "**"
+precedence = "override"
+SPDX-FileCopyrightText = "2025-2026 Uptime Lab Inc. and the Uptime Orchestrator authors"
+SPDX-License-Identifier = "LicenseRef-FCL-1.0-ALv2"
+
+# The agent, the protocol and the two offline signers are Apache-2.0, and so
+# are the public half of the publication guard, the configuration-reference
+# generator and the notices generator (they must run on a fork). The
+# entitlement signer only produces files and may be used, modified and
+# redistributed under Apache-2.0; what READS them (the backend's entitlement
+# package) and the instance-wide admitted-device count in the node
+# repository are the licence-key functionality FCL protects and stay under
+# FCL.
+[[annotations]]
+path = ["agent/**", "proto/**", "tools/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2025-2026 Uptime Lab Inc. and the Uptime Orchestrator authors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Generated protocol code is Apache-2.0 wherever it is copied: the backend's
+# copy is the same bytes as proto/'s.
+[[annotations]]
+path = "backend/pkg/webapp/infrastructure/grpc/proto/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2025-2026 Uptime Lab Inc. and the Uptime Orchestrator authors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# The URL-credential redaction was written in the backend, and the agent's
+# redact package derives from it (URLsInText is the same regex and the same
+# trailing-punctuation loop; the package is not a byte copy). Declaring the
+# source Apache-2.0 is the licensor's act that makes the derivative clean and
+# lets a future change flow either way.
+[[annotations]]
+path = ["backend/pkg/webapp/domain/node_command/details_redaction.go",
+        "backend/pkg/webapp/domain/node_command/details_redaction_test.go"]
+precedence = "override"
+SPDX-FileCopyrightText = "2025-2026 Uptime Lab Inc. and the Uptime Orchestrator authors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Public keys are not works of authorship in any useful sense; declaring them
+# Apache-2.0 everywhere they are copied keeps the three trust stores identical.
+[[annotations]]
+path = ["signing/trusted-keys/**", "backend/pkg/webapp/infrastructure/signing/keys/**", "agent/pkg/signing/keys/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2025-2026 Uptime Lab Inc."
+SPDX-License-Identifier = "Apache-2.0"
+
+# Third-party fonts shipped with the web UI.
+[[annotations]]
+path = "frontend/public/fonts/**"
+precedence = "override"
+SPDX-FileCopyrightText = "2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)"
+SPDX-License-Identifier = "OFL-1.1"
+

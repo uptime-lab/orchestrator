@@ -1,0 +1,31 @@
+id: node_exporter
+name: Metrics exporter
+description: >-
+  Runs the Prometheus node exporter, serving host metrics on an HTTP endpoint
+  for your monitoring system to scrape. The endpoint has no authentication:
+  anything that can reach the port can read the host's metrics. On untrusted
+  networks, listen on localhost or firewall the port.
+details: >-
+  Installed as a distro package. Metrics cover CPU, memory, disk, network and
+  temperatures. If you rely on the host firewall, note that ports published
+  by Docker containers bypass it.
+class: reconciled
+params:
+  - name: listen_port
+    label: Listen port
+    description: Port the /metrics endpoint answers on.
+    type: int
+    default: 9100
+    min: 1024
+    max: 65535
+  - name: listen_address
+    label: Listen on
+    description: all = every interface (scrapeable over the network); localhost = loopback only.
+    type: enum
+    enum_values: [all, localhost]
+    default: all
+  - name: textfile_collector
+    label: Textfile collector
+    description: Expose custom metrics dropped into /var/lib/prometheus/node-exporter by scripts.
+    type: bool
+    default: true

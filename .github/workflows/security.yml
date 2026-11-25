@@ -1,0 +1,137 @@
+name: Security
+
+# Dependency scanning for the public repository. The schedule is the point:
+# a push-triggered scan cannot report a NEW advisory against UNCHANGED code,
+# and the advisory database is what moves. govulncheck exits 3 on a reachable
+# vulnerability, so red is a finding, not a backlog item.
+#
+# Gated and placed by the same two repository variables as ci.yml
+# (PUBLIC_CI_ENABLED, PUBLIC_CI_RUNS_ON). No secret is used anywhere here, so
+# every job is safe on a fork pull request.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'postman/**'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'postman/**'
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A scheduled run must never be cancelled by a push arriving at the same time.
+concurrency:
+  group: security-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
+
+jobs:
+  govulncheck:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    strategy:
+      # One module's finding must not hide the state of the other.
+      fail-fast: false
+      matrix:
+        module: [backend, agent]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      # Deliberately not pinned: a vulnerability scanner must stay current for
+      # the run to mean anything, and it comes from the module proxy the build
+      # already trusts.
+      # Through tools/vulngate: the scanner decides what is reachable, and the
+      # module's acceptance file may excuse an advisory only with a reason and
+      # a review date. An expired or a stale acceptance fails the run.
+      - name: Run govulncheck
+        working-directory: ${{ matrix.module }}
+        run: python3 ../tools/vulngate/vulngate.py --accepted ../tools/vulngate/accepted-${{ matrix.module }}.txt
+
+  # The signer needs cgo and the smart-card C library. A hosted image installs
+  # them here; a runner named by PUBLIC_CI_RUNS_ON has no sudo and must
+  # already carry them, so the step installs nothing when they are present
+  # and, when they are missing and cannot be installed, says which instead of
+  # failing at a password prompt. A scan that could not build has not passed.
+  govulncheck-agent-signer:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tools/agent-signer/go.mod
+          cache-dependency-path: tools/agent-signer/go.sum
+      - name: Provide the smart-card headers
+        run: |
+          if command -v gcc >/dev/null && pkg-config --exists libpcsclite 2>/dev/null; then
+            echo "gcc, pkg-config and libpcsclite are already present"
+          elif sudo -n true 2>/dev/null; then
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends libpcsclite-dev pkg-config gcc
+          else
+            echo "::error::gcc, pkg-config or libpcsclite-dev is missing and this runner cannot install packages; the PIV build cannot be scanned without them"
+            exit 1
+          fi
+      - name: Run govulncheck
+        working-directory: tools/agent-signer
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  # The entitlement signer reaches the same token through the same library,
+  # but only in its `-tags piv` build (the default build is standard library
+  # only, and ci.yml builds that one): the tag is what puts the PIV code in
+  # front of the scanner, and the vet compiles it.
+  govulncheck-entitlement-signer:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: tools/entitlement-signer/go.mod
+          cache-dependency-path: tools/entitlement-signer/go.sum
+      - name: Provide the smart-card headers
+        run: |
+          if command -v gcc >/dev/null && pkg-config --exists libpcsclite 2>/dev/null; then
+            echo "gcc, pkg-config and libpcsclite are already present"
+          elif sudo -n true 2>/dev/null; then
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends libpcsclite-dev pkg-config gcc
+          else
+            echo "::error::gcc, pkg-config or libpcsclite-dev is missing and this runner cannot install packages; the PIV build cannot be scanned without them"
+            exit 1
+          fi
+      - name: Vet the PIV build
+        working-directory: tools/entitlement-signer
+        run: go vet -tags piv ./...
+      - name: Run govulncheck on the PIV build
+        working-directory: tools/entitlement-signer
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest -tags piv ./...
+
+  # `--prod` is the gate: the dev-tooling chain (vite, rollup, esbuild) never
+  # reaches a browser, and a gate that starts red stays unread. The full audit
+  # still runs, un-gated, so the tooling backlog stays visible in the log.
+  pnpm-audit:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Report all advisories (not a gate)
+        working-directory: frontend
+        continue-on-error: true
+        run: npx pnpm@9 audit || true
+      - name: Gate on production dependencies
+        working-directory: frontend
+        run: npx pnpm@9 audit --prod

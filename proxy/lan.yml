@@ -1,0 +1,93 @@
+# Routes of the bundled plain-HTTP proxy (the `proxy-lan` profile of
+# docker-compose.community.yml): the route table of docs/INSTALL.md on one
+# HTTP entry point, with no certificate. For a trusted local network only. The
+# file is a template: Traefik's file provider fills in the `env` values from
+# the environment the proxy was started with.
+#
+# Port 80 (the `http` entry point) holds no HTTP route: one TCP route takes
+# every connection and passes it, unread, to `web` on the container's
+# loopback, which serves the routes below and learns each client's real
+# address from the PROXY protocol header the hop sends. The hop exists for
+# its per-address connection bound, which only a TCP route can carry. It
+# bounds nothing in time: Traefik picks a plaintext TCP route without
+# reading a byte, so a connection that sends nothing is held until the
+# client closes it, and the bound caps how many of those one address holds.
+http:
+  routers:
+    api:
+      rule: "PathPrefix(`/api`)"
+      entryPoints: [web]
+      service: backend
+      middlewares: [strip-api]
+    ws:
+      rule: "PathPrefix(`/ws`)"
+      entryPoints: [web]
+      service: backend
+      middlewares: [strip-ws]
+    device:
+      rule: "PathPrefix(`/cdn`) || PathPrefix(`/capture`) || PathPrefix(`/http-boot`) || PathPrefix(`/net_install`) || PathPrefix(`/source/`) || Path(`/install.sh`) || Path(`/uninstall.sh`)"
+      entryPoints: [web]
+      service: backend
+    spa:
+      rule: "PathPrefix(`/`)"
+      entryPoints: [web]
+      service: frontend
+      priority: 1
+  middlewares:
+    strip-api:
+      stripPrefix: {prefixes: ["/api"]}
+    strip-ws:
+      stripPrefix: {prefixes: ["/ws"]}
+  services:
+    backend:
+      loadBalancer: {servers: [{url: "http://backend:8080"}]}
+    frontend:
+      loadBalancer: {servers: [{url: "http://frontend:8080"}]}
+
+tcp:
+  routers:
+    http:
+      rule: "HostSNI(`*`)"
+      entryPoints: [http]
+      service: web
+      middlewares: [http-inflight]
+    grpc:
+      rule: "HostSNI(`*`)"
+      entryPoints: [grpc]
+      service: grpc
+      middlewares: [grpc-inflight]
+  middlewares:
+    # At most this many simultaneous agent connections from ONE client
+    # address. Every device behind a NAT shares its site's address, and an
+    # agent holds one connection for as long as it runs, so the bound is a
+    # site's whole fleet: a device past it is closed here, before the
+    # backend sees it. PROXY_AGENT_CONNECTIONS_PER_ADDRESS in .env sets it
+    # (docs/INSTALL.md, "The agent port").
+    grpc-inflight:
+      inFlightConn:
+        amount: {{ env "PROXY_AGENT_CONNECTIONS_PER_ADDRESS" }}
+    # At most this many simultaneous HTTP connections from ONE client
+    # address, idle ones included: the bound on what one address can hold
+    # open on port 80, where no timeout applies before a request (a client
+    # that connects and sends nothing, or half a header). A browser holds a
+    # few; a booting device fetches its boot files and images one at a
+    # time, so a site's devices behind one NAT booting or downloading at
+    # once take about one each; each idle connection, held across the hop,
+    # costs the proxy about 60 KB, so the default (1024) holds one address
+    # to about 60 MB. A kept-alive connection idle for a minute is closed
+    # and frees its place. PROXY_HTTP_CONNECTIONS_PER_ADDRESS in .env sets it.
+    http-inflight:
+      inFlightConn:
+        amount: {{ env "PROXY_HTTP_CONNECTIONS_PER_ADDRESS" }}
+  services:
+    web:
+      loadBalancer:
+        servers: [{address: "127.0.0.1:8081"}]
+        serversTransport: proxy-protocol
+    grpc:
+      loadBalancer:
+        servers: [{address: "backend:50051"}]
+        serversTransport: proxy-protocol
+  serversTransports:
+    proxy-protocol:
+      proxyProtocol: {version: 2}

@@ -1,0 +1,7 @@
+# Issue chooser for the public repository. Blank issues stay enabled on
+# purpose: a template that does not fit should not stop a report.
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/uptime-lab/orchestrator/security/advisories/new
+    about: Never in a public issue. Private vulnerability reporting opens a thread only the maintainers see; SECURITY.md has the details and the e-mail fallback.

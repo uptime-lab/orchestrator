@@ -1,0 +1,78 @@
+# Compute Blade (Uptime Lab) — compute-module carrier in a blade form factor,
+# taking both the CM4 and the CM5 generation (same socket).
+#
+# The stable base across every blade: edge button (GPIO20), digital LEDs
+# (NeoPixel on GPIO18), USB-A (needs dwc2 host mode), front UART (uart0) and a
+# 10-pin expansion header that is literally pins 1-10 of the standard Pi 40-pin
+# header. TPM is a FACTORY property: absent on Basic, soldered on the TPM and
+# DEV variants (DEV adds HDMI debug + USB-C bootloader access on top).
+id: compute-blade
+name: Compute Blade
+description: Blade carrier for CM4/CM5 with PoE+, NVMe, edge button and digital LEDs. Pick the factory variant that matches your hardware.
+fits: [CM4, CM5, CM5 Lite]
+identify:
+  # Digital LEDs on GPIO18 (2 in the chain), driven natively since agent
+  # 0.6.6 (RP1 PIO on CM5, PWM serializer on CM4). stealth_gpio is the
+  # transistor line from the blade documentation: driven high it cuts every
+  # LED except the digital chain, which is what keeps identify working in
+  # stealth mode.
+  backend: neopixel
+  gpio: 18
+  color: blue
+  stealth_gpio: 21
+  digital_leds: 2
+fixed:
+  - id: button
+    name: Edge button
+    capabilities: [button]
+    # The agent watches this BCM line (pull-up, pressed = low) and reports
+    # presses to the platform, which lights the node up in the UI.
+    button_gpio: 20
+  - id: leds
+    name: Digital LEDs
+    capabilities: [leds]
+  - id: usb-a
+    name: USB-A port (host mode)
+    overlays:
+      - "dtoverlay=dwc2,dr_mode=host"
+variants:
+  - id: basic
+    name: Basic
+  - id: tpm
+    name: TPM
+    # The blade shipped with more than one TPM part over its life, so the
+    # registry names the CLASS ("TPM 2.0") and the UI shows the concrete chip
+    # only after detection (the agent's TPMInfo carries the model). The
+    # overlay below covers the SPI part (SLB9670 family); if an I2C part
+    # surfaces on real hardware, add its overlay alongside — an overlay whose
+    # chip is absent loads inert, which the ladder reports honestly.
+    peripherals:
+      - id: tpm
+        name: TPM 2.0
+        overlays:
+          - "dtparam=spi=on"
+          - "dtoverlay=tpm-slb9670"
+        probe:
+          paths_any: ["/dev/tpm0", "/dev/tpmrm0"]
+        capabilities: [tpm]
+  - id: dev
+    name: Dev
+    notes: TPM plus an HDMI debug port and USB-C bootloader access.
+    peripherals:
+      - id: tpm
+        name: TPM 2.0
+        overlays:
+          - "dtparam=spi=on"
+          - "dtoverlay=tpm-slb9670"
+        probe:
+          paths_any: ["/dev/tpm0", "/dev/tpmrm0"]
+        capabilities: [tpm]
+ports:
+  - id: expansion-header
+    name: Expansion header (10-pin)
+    pinout: rpi-40pin
+    pin_from: 1
+    pin_to: 10
+    # uart0 (pins 8/10) is also routed to the blade's front UART connector —
+    # a module consuming it would break the serial console.
+    shared_buses: [uart0]

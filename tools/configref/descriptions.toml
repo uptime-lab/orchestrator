@@ -1,0 +1,963 @@
+# Operator-facing descriptions for docs/CONFIGURATION.md.
+#
+# One entry per environment variable the backend reads. The generator
+# (configref.py) takes the variable list, the types and the defaults from the
+# Go loader and FAILS when a variable here is not read by the code, or a
+# variable the code reads has no entry here — so this file is the one place a
+# description can go stale and be caught.
+#
+# Rules for a description: one line, present tense, what the value does and
+# what 0 or empty means when that is special. No value from any particular
+# install belongs here; the defaults come from the code.
+
+preamble = """
+Every setting of the Uptime Orchestrator backend is an environment variable.
+This page lists them all, with the type the loader parses, the built-in
+default, and what each one does. It is generated from the loader's source, so
+a variable that is not on this page is not read by the server.
+
+The defaults here are the code's. The community compose file
+(`docker-compose.community.yml`) sets its own value for many of them — the
+image limits, the agent-port shape, the account ceiling, command retention,
+the browser terminal, whether an uploaded image's original is kept after
+compression and the database name among them — so on an install made from it, the `environment:` block of its `backend` service says what is in
+force; `docs/INSTALL.md` explains the values that change behaviour.
+"""
+
+loading = """
+The server reads an optional YAML file from `CONFIG_PATH` (the same settings
+under YAML keys; `config/config.yaml.example` shows the shape) and then applies
+the environment on top of it: **an environment variable always overrides the
+file.** A deployment that sets everything in the environment needs no file at
+all; the server logs that the file was not found and continues. A value that
+fails to parse (a non-numeric port, a malformed boolean) is ignored and the
+previous value stands.
+
+`APP_ENV` decides the mode. Only `development`, `dev`, `local` and `test` opt
+out of the hardened mode; **unset, misspelled or anything else is production**,
+where the checks under "Production checks" refuse to boot. In the opted-out
+modes the same checks run and are logged as warnings — except the three
+secret checks, which refuse the boot in every mode until the install also
+states `ALLOW_INSECURE_DEV_SECRETS=true`.
+"""
+
+secrets_note = """
+A variable marked *secret* is read through a file first: when `<VAR>_FILE` is
+set, the server reads the credential from that path (trailing newlines
+stripped) and ignores `<VAR>` in the environment. **A named file that cannot
+be read is treated as unset** — the server does not fall back to the
+environment copy, so a rotation that did not take effect fails loudly instead
+of running on a stale value. Docker Compose `secrets:` mount such files at
+`/run/secrets/<name>`, which is how the community compose file passes every
+credential. `server --init-secrets DIR` writes the whole set a self-hosted
+install mounts — random values for the five that have to agree with nothing
+outside the host, empty files for the optional ones — at 0400 inside a 0700
+directory, prints the `<VAR>_FILE` lines, and never overwrites.
+"""
+
+production_intro = """
+`Config.Problems()` is the list of conditions a production install refuses to
+boot on (`Config.Validate()` turns it into a fatal error). An install whose
+`APP_ENV` is one of {insecure_envs} logs the same list as warnings and starts
+anyway — with one exception: the three secret checks (`JWT_SECRET_KEY`,
+`SECRETS_ENCRYPTION_KEY`, `CDN_SIGNING_KEY`) refuse the boot in every mode,
+because a placeholder key printed in this repository is forgeable wherever it
+runs. A development install that must run on such values states
+`ALLOW_INSECURE_DEV_SECRETS=true`; production ignores that flag and says so.
+A secret passes the weakness check only when it is set, is at least
+{min_secret_length} characters long, and contains none of the placeholder
+markers {markers} — the strings every example and placeholder in this
+repository has ever used. `server --init-secrets DIR` writes acceptable values
+into files (see "Secrets" above), and so does `openssl rand -hex 32`.
+"""
+
+advisories = """
+`ALLOW_INSECURE_DEV_SECRETS` is reported in both directions: set in
+production it is logged as having had no effect; set in a development mode
+and actually carrying the boot over a weak secret, it is logged as the
+reason every token this process signs is forgeable. A plaintext agent channel
+declared with `AGENT_GRPC_PLAINTEXT_OK=true` is one advisory per boot, naming
+what crosses that wire readable. `PROVISIONING_BOOT_FAILSAFE_THRESHOLD`
+above 0 is the one item of the configuration's advisory list proper
+(`Config.Advisories()`): logged as a warning in every mode, never a refusal,
+because the unauthenticated per-serial boot path is safe only while the
+failsafe is off (see `docs/HTTPBOOT-AUTH-RESEARCH.md`). Separately, the
+server start logs a warning in every mode when `INSTANCE_MONITORING_READER`
+names nothing (anomalies are recorded with nothing reading them; `none` turns
+it into an informational line, as the community compose does); that line
+comes from the startup code, not from the advisory list.
+"""
+
+[sections]
+order = ["server", "database", "auth", "secrets", "storage", "images", "nodes",
+         "grpc", "workflows", "retention", "email", "provisioning", "cdn", "admin"]
+
+[sections.server]
+title = "Server"
+intro = "The HTTP listener, the public origins and the process-level knobs."
+
+[sections.database]
+title = "Database"
+intro = "PostgreSQL connection. The schema is created and migrated by the server on start; there is no separate migration step."
+
+[sections.auth]
+title = "Authentication and sign-up"
+intro = "Tokens, sessions, passkeys, and who may create an account."
+
+[sections.secrets]
+title = "Secrets at rest"
+intro = "The key that encrypts stored secret values, provisioning passwords and tracked file contents, and its rotation controls. Losing the key makes every encrypted row permanently unreadable — see `docs/BACKUP-RESTORE.md`."
+
+[sections.storage]
+title = "Storage"
+intro = """
+Where uploaded images, captures and agent packages live. `STORAGE_TYPE=auto`
+picks S3-compatible object storage when both `S3_BUCKET` and `S3_ENDPOINT` are
+set, Google Cloud Storage when its bucket and project are, and the local
+filesystem otherwise. Uploads always spill to `TMPDIR` first, whichever
+backend stores them.
+"""
+
+[sections.images]
+title = "OS images"
+intro = """
+Image quotas and the compression pipeline. The storage ceilings default to
+unlimited (an on-prem install decides what its disk allows); the admission and
+memory bounds default armed and have no "unlimited" value, because they keep
+one upload from taking the whole server down.
+"""
+
+[sections.nodes]
+title = "Nodes, members and per-account quotas"
+intro = """
+What one account may take from a shared instance. Every count cap answers a
+refusal with HTTP 409 (the caller's next step is to remove something, not to
+wait), checks fail open on a database error, and `0` means unlimited unless
+the description says otherwise. The web terminal and SSH adoption are listed
+here too: both are off until enabled.
+"""
+
+[sections.grpc]
+title = "Agent channel (gRPC)"
+intro = """
+The listener every device agent connects to, its TLS, and the bounds on
+unauthenticated and authenticated streams. See `docs/INSTALL.md` for what
+the reverse proxy in front of it has to do.
+"""
+
+[sections.workflows]
+title = "Playbooks"
+intro = "Bounds on playbook executions and their history."
+
+[sections.retention]
+title = "Retention"
+intro = """
+The two tables nothing else deletes from. Command history defaults to
+keep-forever; the cost of that is named: command payloads and results are
+encrypted at rest, so unbounded growth slows every key rotation. The audit
+trail is kept for a year by default, and the sweep runs hourly in small
+batches.
+
+The audit retention is the install's default. On an install that hosts
+several accounts, instance administration can give one account its own value
+(the `accounts.audit_retention_days` column: empty for the install default,
+`0` for forever); the API never writes it, and each account's audit tab shows
+how long its own trail is kept. Every positive value, the install's or an
+account's, is raised to at least 7 days — the invitation limit
+(`MEMBER_MAX_INVITES_PER_DAY`) is counted off the trail — and lowered to at
+most 3650.
+
+**Exporting the audit trail.** To keep events longer than the retention, copy
+them to an external system before they age out: `GET /api/v1/audit-events`
+(super_admin only, newest first, paged with `page` and `per_page` up to 200)
+returns an account's trail. Nothing else exports it.
+"""
+
+[sections.email]
+title = "Email and single sign-on"
+intro = "Outbound mail (see `docs/EMAIL.md`) and an OpenID Connect identity provider (see `docs/GOOGLE-OAUTH-SETUP.md`)."
+
+[sections.provisioning]
+title = "Provisioning and network boot"
+intro = "The SD provisioning bundle, the HTTP-boot endpoint and the EEPROM signer. See `docs/NETWORK-FIRST.md`."
+
+[sections.cdn]
+title = "Signed download capabilities"
+intro = "The key behind the signed URLs for `/cdn`, image downloads and per-device EEPROM packages."
+
+[sections.admin]
+title = "Instance monitoring and logging"
+intro = "What the server records about itself and how loudly."
+
+# ----------------------------------------------------------------------------- server
+
+[variables.APP_ENV]
+section = "server"
+order = 1
+description = "Run mode: `development`, `dev`, `local` or `test` opt out of the fail-closed checks (all but the three secret checks, which need `ALLOW_INSECURE_DEV_SECRETS` as well) and switch logs to text at debug level; unset or any other value is production (JSON logs, insecure configuration refused)."
+
+[variables.SERVER_HOST]
+section = "server"
+order = 2
+description = "Address the HTTP API binds to."
+
+[variables.SERVER_PORT]
+section = "server"
+order = 3
+description = "Port the HTTP API listens on."
+
+[variables.SERVER_ADVERTISEMENT_URL]
+section = "server"
+order = 4
+description = "The platform URL written into adoption files and install scripts — what DEVICES call; must include the port when it is not the scheme's default. Empty uses the host of the request that minted the file."
+
+[variables.APP_BASE_URL]
+section = "server"
+order = 5
+description = "The public origin of the web UI (scheme and host), used to build links that leave the system such as the email verification link; required when email is enabled."
+
+[variables.CORS_ALLOWED_ORIGINS]
+section = "server"
+order = 6
+description = "Origins allowed to call the API from a browser. The default wildcard is refused in production because the API allows credentials; pin it to the UI's origin."
+
+[variables.WEBSOCKET_ALLOWED_ORIGINS]
+section = "server"
+order = 7
+description = "Origins allowed to open the account and terminal WebSockets. Empty uses the CORS origins, and same-origin when those name nothing usable; set it only when the socket policy must differ."
+
+[variables.CONFIG_PATH]
+section = "server"
+order = 8
+outside_loader = true
+read_in = "cmd/server"
+type = "string"
+default = "`../config_local/config.yaml`"
+description = "Path of the optional YAML configuration file; a missing file is logged and the environment alone is used, a present but unparseable one refuses the boot."
+
+[variables.TMPDIR]
+section = "server"
+order = 9
+outside_loader = true
+read_in = "cmd/server"
+type = "string"
+default = "(empty)"
+description = "Where multipart uploads spill past their in-memory budget; set it to a directory on the storage volume, because a container's `/tmp` is RAM and a multi-gigabyte image upload would be charged against the memory limit. Created on start if missing."
+
+# ----------------------------------------------------------------------------- database
+
+[variables.DB_HOST]
+section = "database"
+order = 1
+description = "PostgreSQL host."
+
+[variables.DB_PORT]
+section = "database"
+order = 2
+description = "PostgreSQL port."
+
+[variables.DB_USER]
+section = "database"
+order = 3
+description = "PostgreSQL role the server connects as; it must own the schema, since the server creates and migrates the tables itself."
+
+[variables.DB_PASSWORD]
+section = "database"
+order = 4
+description = "Password of that role."
+
+[variables.DB_NAME]
+section = "database"
+order = 5
+description = "Database name. The community compose file sets `orchestrator` (`DB_NAME` in its `.env` overrides it)."
+
+[variables.DB_SSLMODE]
+section = "database"
+order = 6
+description = "The libpq `sslmode` for the connection (`disable`, `require`, `verify-full`, …)."
+
+[variables.DB_LOG_QUERIES]
+section = "database"
+order = 7
+outside_loader = true
+read_in = "infrastructure/database/postgres"
+type = "bool"
+default = "`false`"
+description = "In production the server logs only warnings and slow queries; `true` re-enables per-statement logging, which interpolates parameter values — including anything read from a credential column — into the log. Outside production every statement is logged regardless."
+
+# ----------------------------------------------------------------------------- auth
+
+[variables.JWT_SECRET_KEY]
+section = "auth"
+order = 1
+description = "Signs every access and refresh token. A forgeable value is a full authentication bypass, so production refuses an empty, short or placeholder value; when `CDN_SIGNING_KEY` is unset the download capabilities derive from it too."
+
+[variables.JWT_ACCESS_TOKEN_TTL]
+section = "auth"
+order = 2
+description = "Lifetime of an access token; short, because it bounds how long a revoked member keeps access before the refresh re-checks membership."
+
+[variables.JWT_REFRESH_TOKEN_TTL]
+section = "auth"
+order = 3
+description = "Lifetime of a refresh token, i.e. how long a session survives without activity."
+
+[variables.JWT_ISSUER]
+section = "auth"
+order = 4
+description = "The `iss` claim written into every token."
+
+[variables.AUTH_MAX_SESSIONS_PER_USER]
+section = "auth"
+order = 5
+description = "Concurrent sign-in sessions one user may hold; a login past the cap revokes the least recently active session rather than being refused. `0` disables the cap."
+
+[variables.WEBAUTHN_RP_ID]
+section = "auth"
+order = 6
+description = "Pins the WebAuthn relying-party id (a bare domain, no port) for passkeys. Empty derives it from each request's host; set it only when a proxy rewrites the Host header, since a passkey is bound to its RP id forever."
+
+[variables.SERVER_INVITE_CODE]
+section = "auth"
+order = 7
+description = "The code a person must present to create a further account through self-registration. The empty install admits its first owner without one; from the first account on, empty means self-registration is CLOSED (403 `registration_closed`) and the way in is an invitation from a member — set a code only to let further organisations register. `SERVER_OPEN_REGISTRATION=true` takes precedence: the code is then neither asked for nor checked."
+
+[variables.SERVER_MAX_ACCOUNTS]
+section = "auth"
+order = 8
+description = "Ceiling on accounts created through self-registration, counted in accounts rather than users (an invited teammate joins an existing account). At the ceiling sign-up answers 403 `registration_closed` with no count in the message, and so does a count that cannot be read — this one check fails closed, because it also decides whether an invite code is required at all. `0` is unlimited."
+
+[variables.SERVER_OPEN_REGISTRATION]
+section = "auth"
+order = 9
+description = "`true` lets any new organisation register without a code once the first account exists: the sign-up page asks for no invite code and `GET /api/v1/server/sign-in-options` answers `registration: open`. Such an account is unusable until its owner confirms their address from the mail (the API answers 403 `email_verification_required` to everything but the confirm screen), so it needs working mail: without it (`EMAIL_*` and `APP_BASE_URL`) sign-up is closed and a startup advisory says so. Until confirmed, an account does not count toward `SERVER_MAX_ACCOUNTS`; it is settled under that ceiling on its first use after confirmation. The open form answers an address that already has an account like a fresh one, and mails nothing then. It takes precedence over `SERVER_INVITE_CODE` (unused; advisory) and over `OIDC_AUTO_PROVISION` for identity-provider sign-ups, whose address the provider has verified. With `SERVER_MAX_ACCOUNTS=0` the cost is unbounded (advisory). Off, an empty invite code still means closed. An unparseable value leaves it off."
+
+[variables.SERVER_OPEN_REGISTRATION_MAX_PENDING]
+section = "auth"
+order = 10
+description = "How many open sign-ups may wait for their owner to confirm the address at once (counted inside `SERVER_OPEN_REGISTRATION_PENDING_HOURS`). Past it an open sign-up answers 429 `registration_busy` (\"try again later\") before the address is looked up. There is no unlimited: a zero, negative or unparseable value leaves the default."
+
+[variables.SERVER_OPEN_REGISTRATION_PENDING_HOURS]
+section = "auth"
+order = 11
+description = "How long an unconfirmed open sign-up counts toward `SERVER_OPEN_REGISTRATION_MAX_PENDING`. An older one stops holding the cap and stays unusable; it is not deleted (the account holds nothing but its owner, and its owner can still confirm it later, under `SERVER_MAX_ACCOUNTS`). A zero, negative or unparseable value leaves the default."
+
+# ----------------------------------------------------------------------------- secrets
+
+[variables.SECRETS_ENCRYPTION_KEY]
+section = "secrets"
+order = 1
+description = "Key for the AES-256-GCM encryption of stored secrets, provisioning passwords, tracked file contents and command payloads (hashed to 32 bytes, so any length works cryptographically). Empty or weak is refused in every mode; only a development mode with `ALLOW_INSECURE_DEV_SECRETS=true` runs on the built-in development key instead, and warns."
+
+[variables.ALLOW_INSECURE_DEV_SECRETS]
+section = "secrets"
+order = 0
+description = "`true` lets an install whose `APP_ENV` is a development mode boot on an empty, placeholder or short `JWT_SECRET_KEY`, `SECRETS_ENCRYPTION_KEY` or `CDN_SIGNING_KEY`, which otherwise refuse the boot in every mode. Inert in production (logged as such); never set it on a machine anything else can reach."
+
+[variables.SECRETS_ENCRYPTION_KEY_OLD]
+section = "secrets"
+order = 2
+description = "Previous keys, comma-separated, accepted for DECRYPTION only during a rotation; clear it once the rewrap has reported completion."
+
+[variables.SECRETS_ENCRYPTION_REWRAP]
+section = "secrets"
+order = 3
+description = "`true` or `1` runs a one-shot re-encryption of every encrypted column under the current key at startup (idempotent; rows already on the current key are skipped), then unset it. Failures are logged, not fatal, and undecryptable rows are left verbatim."
+
+# ----------------------------------------------------------------------------- storage
+
+[variables.STORAGE_TYPE]
+section = "storage"
+order = 1
+description = "`auto` (the default), `s3`, `gcp` or `local`; `auto` selects S3 when `S3_BUCKET` and `S3_ENDPOINT` are set, GCP when its bucket and project are, else local disk."
+
+[variables.STORAGE_LOCAL_BASE_DIR]
+section = "storage"
+order = 2
+description = "Directory for local-disk storage (images, captures, the `agent-artifacts/` prefix the agent CDN serves)."
+
+[variables.STORAGE_LOCAL_BASE_URL]
+section = "storage"
+order = 3
+description = "URL prefix under which stored objects are served; the `/cdn` route."
+
+[variables.STORAGE_MAX_FILE_SIZE]
+section = "storage"
+order = 4
+description = "Ceiling on a single uploaded file in bytes, whichever backend stores it; `0` disables the check."
+
+[variables.STORAGE_TMP_SWEEP_HOURS]
+section = "storage"
+order = 5
+description = "Age after which an abandoned upload spill file in `TMPDIR` is deleted (local storage only); `0` disables the sweep. Keep it longer than the slowest upload you expect, since a live upload reopens its spill file by path."
+
+[variables.S3_ENDPOINT]
+section = "storage"
+order = 10
+description = "The S3-compatible service URL — the location endpoint, not the bucket URL; any S3-compatible store works."
+
+[variables.S3_REGION]
+section = "storage"
+order = 11
+description = "Region code the provider expects."
+
+[variables.S3_BUCKET]
+section = "storage"
+order = 12
+description = "Bucket name; the SDK prepends it to the endpoint (virtual-hosted style) unless `S3_USE_PATH_STYLE` is set."
+
+[variables.S3_ACCESS_KEY]
+section = "storage"
+order = 13
+description = "Access key for the bucket; the storage client refuses to start with S3 selected and this empty."
+
+[variables.S3_SECRET_KEY]
+section = "storage"
+order = 14
+description = "Secret key for the bucket."
+
+[variables.S3_USE_PATH_STYLE]
+section = "storage"
+order = 15
+description = "`true` switches to `https://endpoint/bucket/key` addressing, which MinIO and several on-prem gateways need; hosted providers mostly serve virtual-hosted style."
+
+[variables.S3_PART_SIZE_BYTES]
+section = "storage"
+order = 16
+description = "Multipart upload part size; together with the concurrency it bounds uploader memory (concurrency × part size). `0` means the client's default of 16 MiB."
+
+[variables.S3_UPLOAD_CONCURRENCY]
+section = "storage"
+order = 17
+description = "Parts uploaded in parallel; `0` means the client's default of 3."
+
+[variables.GCP_STORAGE_BUCKET]
+section = "storage"
+order = 20
+description = "Google Cloud Storage bucket, for `STORAGE_TYPE=gcp` or auto-detection."
+
+[variables.GCP_PROJECT_ID]
+section = "storage"
+order = 21
+description = "Google Cloud project of that bucket."
+
+[variables.GCP_CREDENTIALS]
+section = "storage"
+order = 22
+description = "Base64-encoded service-account JSON for the bucket."
+
+[variables.GCP_CREDENTIALS_FILE]
+section = "storage"
+order = 23
+description = "Path to a service-account JSON file, the alternative to the inline credentials."
+
+# ----------------------------------------------------------------------------- images
+
+[variables.IMAGE_MAX_UPLOAD_SIZE]
+section = "images"
+order = 1
+description = "Cap on one OS image upload in bytes, on top of `STORAGE_MAX_FILE_SIZE`; `0` adds no extra cap."
+
+[variables.IMAGE_MAX_DECOMPRESSED_SIZE]
+section = "images"
+order = 2
+description = "How many bytes the compression pipeline accepts out of a decompressor, the guard against a crafted archive expanding without limit; a job past it stops, its partial output is deleted and the image is marked failed. `0` derives 20 × `IMAGE_MAX_UPLOAD_SIZE`, and with no upload cap either it is 64 GiB — never unlimited."
+
+[variables.IMAGE_MAX_PER_ACCOUNT]
+section = "images"
+order = 3
+description = "How many images one account may hold; `0` is unlimited."
+
+[variables.IMAGE_MAX_BYTES_PER_ACCOUNT]
+section = "images"
+order = 4
+description = "Total bytes one account's images may occupy, counting a retained pre-compression original as well; `0` is unlimited. The count cap alone does not bound storage."
+
+[variables.IMAGE_MAX_BYTES_INSTANCE]
+section = "images"
+order = 5
+description = "Total bytes of every account's images together, the backstop that does not depend on how many accounts exist; `0` is unlimited. Both byte ceilings also bound what a compression stores: its output is reserved against them before the first byte and checked again before it replaces the upload. An install where more than one account can sign up should set at least one of them."
+
+[variables.IMAGE_COMPRESS_REPLACE_ORIGINAL]
+section = "images"
+order = 6
+description = "`true` deletes the uploaded original after a successful compression instead of keeping it as a safety copy, halving per-image disk at the cost of never re-compressing from the original. The community compose file sets `true`, so on an install made from it the original is deleted."
+
+[variables.IMAGE_ALLOW_PLAINTEXT_URL]
+section = "images"
+order = 7
+description = "`true` permits dispatching an OS install from an `http://` image URL in production; an image is root on the target device and its only integrity check travels in the same command, so leave it off unless the LAN is trusted."
+
+[variables.IMAGE_CAPTURE_INFLIGHT_WINDOW_MINUTES]
+section = "images"
+order = 8
+description = "How long a started-but-not-yet-uploaded capture occupies a slot in the per-account image count, so concurrent captures see each other; `0` never counts them. Set it longer than a whole-disk capture takes on your slowest link."
+
+[variables.IMAGE_MAX_CONCURRENT_UPLOADS]
+section = "images"
+order = 9
+description = "Multipart image uploads the server stages at once, server-wide; refusal is a typed 429. `0` means the built-in default, never unlimited."
+
+[variables.IMAGE_MAX_CONCURRENT_UPLOADS_PER_ACCOUNT]
+section = "images"
+order = 10
+description = "One account's share of the upload slots. `0` means the built-in default, never unlimited."
+
+[variables.IMAGE_MAX_STAGING_BYTES]
+section = "images"
+order = 11
+description = "Sum of bytes admitted uploads may hold in `TMPDIR` at once (reservations are the declared Content-Length); set it from the size of that volume. `0` means the built-in default, never unlimited."
+
+[variables.IMAGE_XZ_MEMLIMIT_MB]
+section = "images"
+order = 12
+description = "Memory bound per xz process in MiB, for compression and decompression; `xz -T0` otherwise sizes itself from physical RAM rather than the container limit. Values below the multi-block floor (192) are raised to it; `0` means the built-in default, never unlimited."
+
+[variables.IMAGE_MAX_CONCURRENT_COMPRESSIONS]
+section = "images"
+order = 13
+description = "Compression or transcode jobs running at once; each is a decoder-plus-encoder pipeline, so the worst case is jobs × (encoder + decoder) within `IMAGE_XZ_MEMLIMIT_MB` each. A container limited to a few hundred MiB should set 1. `0` means the built-in default, never unlimited."
+
+[variables.IMAGE_COMPRESSION_MEMORY_BUDGET_MB]
+section = "images"
+order = 14
+description = "Sum of the per-process xz limits every running job may hold; a job takes its whole weight (two process limits for a transcode) before it starts. Never below two process limits; `0` means exactly that floor."
+
+[variables.IMAGE_COMPRESSION_TIMEOUT_MINUTES]
+section = "images"
+order = 15
+description = "How long one compression or transcode job may run once it holds a slot; past it the job stops, its partial output is deleted and the image is marked failed, the upload untouched. Waiting for a slot does not count. Slots are shared fairly between accounts (an account runs a second job at once only when nobody else waits), and deleting an image stops its job, queued or running. `0` means the built-in default, never unlimited."
+
+# ----------------------------------------------------------------------------- nodes and quotas
+
+[variables.NODE_MAX_PER_ACCOUNT]
+section = "nodes"
+order = 1
+description = "Nodes one account may hold, checked wherever a node row is created, including master-token adoption; a restore of a deleted node is exempt. A runaway guard, not a commercial limit; `0` is unlimited."
+
+[variables.NODE_SERIAL_LEASE_DAYS]
+section = "nodes"
+order = 2
+description = "How long a hardware serial may stay bound to a node that was never admitted (a placeholder awaiting first connect, or an adoption pending approval) with nothing heard from the device; past it the hourly sweep clears the fingerprint and keeps the row. A device flashed from the browser and not powered on within it must be flashed again. An admitted node is never touched; `0` disables."
+
+[variables.MEMBER_MAX_PER_ACCOUNT]
+section = "nodes"
+order = 3
+description = "Seats per account, checked when an invite is sent and again when it is accepted; `0` is unlimited."
+
+[variables.MEMBER_MAX_INVITES_PER_DAY]
+section = "nodes"
+order = 4
+description = "Invite emails one account may send per rolling 24 hours, counted off the audit trail so a revoke-and-resend loop cannot reset it; this bounds mail sent to strangers over your domain. `0` is unlimited."
+
+[variables.SECRET_MAX_PER_ACCOUNT]
+section = "nodes"
+order = 5
+description = "Secrets per account. Node attributes are secrets too, so a large fleet spends this budget without anyone opening the Secrets page; `0` is unlimited."
+
+[variables.UTILITY_MAX_ASSIGNMENTS_PER_ACCOUNT]
+section = "nodes"
+order = 6
+description = "Utility assignment rows per account; `0` is unlimited."
+
+[variables.UTILITY_MAX_CONCURRENT_APPLIES]
+section = "nodes"
+order = 7
+description = "One account's utility applies in flight at once; an apply pins its node to maintenance for up to 30 minutes, and nodes past the bound are reported deferred rather than dropped. `0` is unlimited."
+
+[variables.NODE_FILE_MAX_VERSIONS_PER_PATH]
+section = "nodes"
+order = 8
+description = "Versions kept per tracked file; `0` is unlimited."
+
+[variables.NODE_FILE_MAX_PER_NODE]
+section = "nodes"
+order = 9
+description = "Files one node may track; `0` is unlimited."
+
+[variables.NODE_FILE_MAX_BYTES_PER_NODE]
+section = "nodes"
+order = 10
+description = "Stored tracked-file content per node, counted as ciphertext; `0` is unlimited. The per-version frame bound (512 KiB) is a constant, not a setting."
+
+[variables.NODE_FILE_MAX_BYTES_PER_ACCOUNT]
+section = "nodes"
+order = 11
+description = "The same budget across every node of an account; `0` is unlimited."
+
+[variables.API_RATE_LIMIT_PER_ACCOUNT_RPS]
+section = "nodes"
+order = 12
+description = "Sustained requests per second on the authenticated API, per account (not per user or address); generous on purpose, it bounds a runaway loop, not a busy person. `0` is unlimited."
+
+[variables.API_RATE_LIMIT_PER_ACCOUNT_BURST]
+section = "nodes"
+order = 13
+description = "Burst allowance of that limiter; `0` is unlimited."
+
+[variables.TERMINAL_ENABLED]
+section = "nodes"
+order = 20
+description = "Enables the browser terminal to a node (a root shell over the agent's stream); off by default. The community compose file turns it on (`true`)."
+
+[variables.TERMINAL_MAX_SESSIONS_PER_USER]
+section = "nodes"
+order = 21
+description = "Concurrent terminal sessions one user may hold; the next one is refused rather than an open shell being killed. `0` is unlimited."
+
+[variables.TERMINAL_MAX_PENDING_HANDSHAKES]
+section = "nodes"
+order = 22
+description = "Terminal sockets upgraded but not yet authenticated, instance-wide (refused with 503 past it). Positive only; `0` or an invalid value keeps the built-in default, there is no unlimited."
+
+[variables.TERMINAL_MAX_PENDING_HANDSHAKES_PER_IP]
+section = "nodes"
+order = 23
+description = "The same bound per client address, asked before the global one so a flooder is refused with 429 while the 503 stays a platform-wide signal. Positive only; `0` keeps the built-in default."
+
+[variables.SSH_ADOPT_ENABLED]
+section = "nodes"
+order = 30
+description = "Enables adopting a running device over outbound SSH (the server dials the device, installs the agent and registers the node); off by default and only meaningful when the server can reach the device network."
+
+[variables.SSH_ADOPT_CDN_BASE_URL]
+section = "nodes"
+order = 31
+description = "The only base URL an SSH-adopted device is told to fetch the agent package from (an SSRF allowlist); empty disables the package download over SSH."
+
+[variables.SSH_ADOPT_ADOPTION_FILE_PATH]
+section = "nodes"
+order = 32
+description = "Where the adoption file is written on the device; the installed agent's unit reads it from there."
+
+[variables.SSH_ADOPT_HOST_KEY_POLICY]
+section = "nodes"
+order = 33
+description = "`tofu` lets a preflight without an expected host key connect on first contact and marks the result; `strict` refuses such a preflight. An adoption never takes a key on first use under either: it must present the preflight's ticket or a fingerprint known out of band."
+
+[variables.SSH_ADOPT_ALLOW_AGENT_AUTH]
+section = "nodes"
+order = 34
+description = "Permits authenticating with an ssh-agent socket on the server host; that lends the forwarding operator's keys to every user allowed to SSH-adopt, so keep it off on a multi-tenant install."
+
+[variables.SSH_ADOPT_AGENT_SOCK_DIR]
+section = "nodes"
+order = 35
+description = "Directory of per-user agent sockets (`<dir>/<user-id>.sock`), so each operator can use only an agent they forwarded themselves; empty uses the single socket from `SSH_AUTH_SOCK`."
+
+[variables.SSH_ADOPT_ALLOWED_HOST_CIDRS]
+section = "nodes"
+order = 36
+description = "Subnets a device may be preflighted or adopted in; empty is no restriction, which makes the preflight an authenticated network scanner, so set it on a shared install."
+
+[variables.SSH_AUTH_SOCK]
+section = "nodes"
+order = 37
+outside_loader = true
+read_in = "infrastructure/ssh"
+type = "string"
+default = "(empty)"
+description = "The ssh-agent socket SSH adoption uses when `SSH_ADOPT_ALLOW_AGENT_AUTH` is on and no per-user socket directory is set."
+
+# ----------------------------------------------------------------------------- grpc
+
+[variables.GRPC_HOST]
+section = "grpc"
+order = 1
+description = "Address the agent gRPC listener binds to."
+
+[variables.GRPC_PORT]
+section = "grpc"
+order = 2
+description = "Port the agent gRPC listener uses."
+
+[variables.GRPC_ADVERTISEMENT_URL]
+section = "grpc"
+order = 3
+description = "The `host:port` written into adoption files as the agent endpoint; must include the port. Empty uses `GRPC_HOST:GRPC_PORT`, which is rarely what a device can reach."
+
+[variables.GRPC_TLS_CERT_FILE]
+section = "grpc"
+order = 4
+description = "Certificate file for serving TLS on the agent listener directly; set together with the key file."
+
+[variables.GRPC_TLS_KEY_FILE]
+section = "grpc"
+order = 5
+description = "Private key file for that certificate."
+
+[variables.GRPC_TLS_TERMINATED_EXTERNALLY]
+section = "grpc"
+order = 6
+description = "`true` declares that an upstream proxy terminates TLS for the agent endpoint and the server receives plaintext gRPC over a trusted internal network; it satisfies the production check without certificate files."
+
+[variables.AGENT_GRPC_PLAINTEXT_OK]
+section = "grpc"
+order = 6
+description = "`true` declares that the agent endpoint is served in plaintext on purpose — a trusted LAN with no proxy and no certificate, devices reaching the server over an `http://` platform URL. It satisfies the production check in place of TLS and is logged at every boot as a configuration advisory, and again as a WARN when the agent listener starts; inert when certificate files or external termination make the wire TLS anyway."
+
+[variables.AGENT_GRPC_PROXY_PROTOCOL]
+section = "grpc"
+order = 7
+description = "`off` or `require`. With `require` every connection must open with a HAProxy PROXY protocol v2 header from the upstream proxy (the parser also accepts v1, which no test exercises), so the server sees each agent's real address and bounds unauthenticated streams per source; there is deliberately no `optional`. Any other value is refused, never read as `off`. Change it together with the proxy."
+
+[variables.AGENT_MAX_STREAMS_PER_NODE]
+section = "grpc"
+order = 8
+description = "Concurrent authenticated streams one node may hold; a new stream past it is refused. Per node, never per account, so a bound cannot take a whole fleet offline. `0` is unlimited."
+
+[variables.AGENT_STREAM_RATE_LIMIT_RPS]
+section = "grpc"
+order = 9
+description = "Inbound frames per second one agent stream may send; frames are paced, never dropped, because a dropped command result leaves a command in progress. Terminal frames are exempt. `0` is unlimited."
+
+[variables.AGENT_STREAM_RATE_LIMIT_BURST]
+section = "grpc"
+order = 10
+description = "Burst allowance of that pacing; `0` is unlimited."
+
+[variables.AGENT_MAX_PREAUTH_STREAMS]
+section = "grpc"
+order = 11
+description = "Streams that have not yet authenticated, process-wide. Positive only: `0` or an invalid value keeps the built-in default, since the pre-auth gate exists to be bounded."
+
+[variables.AGENT_MAX_PREAUTH_STREAMS_PER_SOURCE]
+section = "grpc"
+order = 12
+description = "The same bound per client address, armed only under `AGENT_GRPC_PROXY_PROTOCOL=require` (without a real address every peer is the proxy). Positive only; `0` keeps the built-in default."
+
+# ----------------------------------------------------------------------------- workflows
+
+[variables.WORKFLOW_EXECUTION_RETENTION_DAYS]
+section = "workflows"
+order = 1
+description = "How long finished playbook executions are kept, with their per-node state and the commands they issued; `0` disables the sweep."
+
+[variables.WORKFLOW_MAX_ACTIVE_EXECUTIONS_PER_ACCOUNT]
+section = "workflows"
+order = 2
+description = "Pending plus running executions one account may have; a start past it is refused (manual and scheduled alike). `0` disables the cap."
+
+[variables.WORKFLOW_MAX_CRON_PLAYBOOKS_PER_ACCOUNT]
+section = "workflows"
+order = 3
+description = "Schedule-triggered playbooks the scheduler honours per account per tick, oldest first with the rest logged and never fired; `0` disables the cap."
+
+[variables.WORKFLOW_MAX_RUNNING_NODES_PER_ACCOUNT]
+section = "workflows"
+order = 4
+description = "Pending plus running execution NODES per account — what actually consumes the worker pool, checked against the requested count before an execution row exists. `0` disables the cap."
+
+# ----------------------------------------------------------------------------- retention
+
+[variables.NODE_COMMAND_RETENTION_DAYS]
+section = "retention"
+order = 1
+description = "How long terminal device commands are kept; commands still awaiting delivery or a result are never swept. `0` keeps them forever. The community compose file sets `90`, so its command history is deleted after 90 days."
+
+[variables.AUDIT_EVENT_RETENTION_DAYS]
+section = "retention"
+order = 2
+description = "How long audit events are kept, in days: the install default, which an account's own value overrides. `0` keeps them forever. An upgraded install that never set it starts deleting events older than a year."
+
+# ----------------------------------------------------------------------------- email and OIDC
+
+[variables.EMAIL_ENABLED]
+section = "email"
+order = 1
+description = "Turns outbound mail on. An enabled mailer with no host or sender address logs a warning at boot and behaves as off."
+
+[variables.EMAIL_SMTP_HOST]
+section = "email"
+order = 2
+description = "SMTP submission or relay host."
+
+[variables.EMAIL_SMTP_PORT]
+section = "email"
+order = 3
+description = "SMTP port; `0` dials 587."
+
+[variables.EMAIL_SMTP_USERNAME]
+section = "email"
+order = 4
+description = "SMTP user, for a host that authenticates by credentials; leave empty for a relay that authorises by sender address."
+
+[variables.EMAIL_SMTP_PASSWORD]
+section = "email"
+order = 5
+description = "SMTP password for that user."
+
+[variables.EMAIL_FROM_ADDRESS]
+section = "email"
+order = 6
+description = "Sender address; it must be a real mailbox or alias in the sending domain or a relay rejects it."
+
+[variables.EMAIL_FROM_NAME]
+section = "email"
+order = 7
+description = "Sender display name."
+
+[variables.EMAIL_SMTP_STARTTLS]
+section = "email"
+order = 8
+description = "Requires the connection to be upgraded with STARTTLS before sending; production refuses an enabled mailer without it, since a verification link is a bearer credential."
+
+[variables.OIDC_ENABLED]
+section = "email"
+order = 10
+description = "Enables sign-in through an OpenID Connect provider; with it off the `/auth/oidc/*` routes are not served and answer a plain 404."
+
+[variables.OIDC_ISSUER_URL]
+section = "email"
+order = 11
+description = "The provider's issuer URL (Google is `https://accounts.google.com`). Google's issuer also names the provider on the sign-in button when `OIDC_PROVIDER_NAME` is empty."
+
+[variables.OIDC_CLIENT_ID]
+section = "email"
+order = 12
+description = "OAuth client id registered with the provider."
+
+[variables.OIDC_CLIENT_SECRET]
+section = "email"
+order = 13
+description = "OAuth client secret."
+
+[variables.OIDC_REDIRECT_URL]
+section = "email"
+order = 14
+description = "The backend callback URL registered with the provider."
+
+[variables.OIDC_AUTO_PROVISION]
+section = "email"
+order = 15
+description = "`true` creates a user and an account for any verified email the provider vouches for; off (the self-hosted default) rejects an unknown email, so a person must be invited first. The instance's own sign-up gate decides ahead of it: with `SERVER_OPEN_REGISTRATION=true` an unknown email is provisioned without a code, and with `SERVER_INVITE_CODE` set only a sign-in carrying the code is."
+
+[variables.OIDC_PROVIDER_NAME]
+section = "email"
+order = 16
+description = "The provider's name as people know it, shown on the sign-in button and the account page (\"Sign in with <name>\"). Empty uses \"Google\" for Google's issuer and the words \"single sign-on\" for any other."
+
+# ----------------------------------------------------------------------------- provisioning
+
+[variables.PROVISIONING_SD_PAYLOAD_DIR]
+section = "provisioning"
+order = 1
+description = "Directory holding the extracted boot partition of the recovery image, zipped with a generated adoption file into the SD provisioning bundle; empty disables the bundle endpoint."
+
+[variables.PROVISIONING_HTTP_BOOT_DIR]
+section = "provisioning"
+order = 2
+description = "Directory holding the signed `boot.img` and `boot.sig` that the HTTP-boot endpoint serves or withholds per device by its boot policy; empty disables network boot."
+
+[variables.PROVISIONING_HTTP_BOOT_FAIL_OPEN]
+section = "provisioning"
+order = 3
+description = "`true` serves the bootstrap to an unknown serial and on a lookup error, which a brand-new device needs to be adopted by netboot before the server knows it; on an internet-facing endpoint that hands the signed bootstrap to any device, so the default is fail-closed."
+
+[variables.PROVISIONING_BOOT_FAILSAFE_THRESHOLD]
+section = "provisioning"
+order = 4
+description = "Consecutive withheld boot attempts after which the endpoint serves recovery anyway, so a node whose installed OS cannot boot becomes reachable; `0` disables. Arming it is logged as an advisory, because the counting endpoint is unauthenticated."
+
+[variables.PROVISIONING_BOOT_HOST]
+section = "provisioning"
+order = 5
+description = "The netboot host this install bakes into device EEPROMs; when set, a device whose EEPROM points elsewhere is refused reboot-to-recovery, since the cycle would never complete against a foreign boot server. Empty disables the check."
+
+[variables.EEPROM_SIGNER_URL]
+section = "provisioning"
+order = 6
+description = "URL of the eeprom-signer service on its private network; empty disables on-platform EEPROM provisioning."
+
+[variables.EEPROM_SIGNER_TOKEN]
+section = "provisioning"
+order = 7
+description = "Bearer token the signer requires on `POST /sign`; it must equal the signer's own `SIGNER_TOKEN`."
+
+[variables.SOURCE_OFFER_DIR]
+section = "provisioning"
+order = 8
+description = "Directory holding the corresponding-source bundle of the recovery image this install distributes (the archives named in the image's `SOURCE-OFFER.txt`, plus a `SHA256SUMS`), published tokenless at `GET /source/`; empty means no offer and the route answers 404. An install that serves the recovery image to anyone but its own operator must set it: the GPL source is owed to whoever receives the image."
+
+# ----------------------------------------------------------------------------- cdn
+
+[variables.CDN_SIGNING_KEY]
+section = "cdn"
+order = 1
+description = "Base secret of the short-lived HMAC capabilities on `/cdn` URLs, image downloads and per-device EEPROM packages. Mandatory in production (it has to agree with nothing outside this process, so generate one); outside production an empty value falls back to the JWT secret. Rotating it only invalidates capabilities already minted, nothing baked into a device."
+
+# ----------------------------------------------------------------------------- admin
+
+[variables.INSTANCE_MONITORING_READER]
+section = "admin"
+order = 1
+description = "Names what reads the instance anomalies the server records; `admin-console` on an install running one. Anything else, including empty, means nothing does, and the server warns so at boot; `none` states it on purpose, and the boot log then says so at INFO instead."
+
+[variables.LOG_LEVEL]
+section = "admin"
+order = 2
+outside_loader = true
+read_in = "cmd/server"
+type = "string"
+default = "(empty)"
+description = "Overrides the log level (`DEBUG`, `INFO`, `WARN`, `ERROR`) without changing `APP_ENV`, which would also drop the fail-closed checks; empty is `INFO` in production and `DEBUG` otherwise. An unparseable value is ignored with a warning."
+
+# ----------------------------------------------------------------------------- production checks
+# Each entry names the variables Problems() inspects; the generator verifies
+# that every weak-secret check in the code is listed here and that every
+# variable named here appears in Problems().
+
+[[production_checks]]
+variables = ["JWT_SECRET_KEY"]
+refuses = "`JWT_SECRET_KEY` is unset, carries a placeholder marker, or is shorter than the minimum."
+satisfy = "Generate one (`openssl rand -hex 32`) and pass it as a secret file."
+
+[[production_checks]]
+variables = ["CDN_SIGNING_KEY"]
+refuses = "`CDN_SIGNING_KEY` is unset, or set to a weak value."
+satisfy = "Generate a second random value; it never has to match anything outside this server."
+
+[[production_checks]]
+variables = ["SECRETS_ENCRYPTION_KEY"]
+refuses = "`SECRETS_ENCRYPTION_KEY` is unset or weak."
+satisfy = "Generate a third random value and back it up before the first boot — every encrypted row depends on it (`docs/BACKUP-RESTORE.md`)."
+
+[[production_checks]]
+variables = ["GRPC_TLS_CERT_FILE", "GRPC_TLS_KEY_FILE", "GRPC_TLS_TERMINATED_EXTERNALLY", "AGENT_GRPC_PLAINTEXT_OK"]
+refuses = "The agent channel would run in plaintext with nothing declared about it: none of `GRPC_TLS_CERT_FILE` + `GRPC_TLS_KEY_FILE`, `GRPC_TLS_TERMINATED_EXTERNALLY=true` or `AGENT_GRPC_PLAINTEXT_OK=true` is set."
+satisfy = "Declare the shape: terminate TLS for the agent port at the reverse proxy (sending PROXY protocol v2, with `AGENT_GRPC_PROXY_PROTOCOL=require`) and set `GRPC_TLS_TERMINATED_EXTERNALLY=true`; or set `AGENT_GRPC_PLAINTEXT_OK=true` for a trusted LAN, which boots under one advisory; or give the server a certificate and key."
+
+[[production_checks]]
+variables = ["AGENT_GRPC_PROXY_PROTOCOL"]
+refuses = "`AGENT_GRPC_PROXY_PROTOCOL` is set to something other than `off` or `require`."
+satisfy = "Use one of the two values; a typo is refused rather than read as `off`."
+
+[[production_checks]]
+variables = ["EMAIL_SMTP_STARTTLS", "APP_BASE_URL"]
+refuses = "Email is enabled with `EMAIL_SMTP_STARTTLS` off, or with `APP_BASE_URL` unset."
+satisfy = "Keep STARTTLS on and set the UI's public origin, or leave email disabled."
+
+[[production_checks]]
+variables = ["CORS_ALLOWED_ORIGINS"]
+refuses = "CORS allows credentials with the wildcard origin, names no origin at all, or is disabled (which the server turns into a wildcard)."
+satisfy = "Set `CORS_ALLOWED_ORIGINS` to the UI's origin."
+
+[variables.ENTITLEMENT]
+section = "nodes"
+order = 60
+description = "The signed device entitlement in its paste form (`entl1.…`), raising the instance-wide admitted-device cap above the free 25; `ENTITLEMENT_FILE` names a file holding it and is read first, so an air-gapped install seeds it beside the secrets. Absent or invalid means the free cap, never a refused boot."
+
+[variables.ENTITLEMENT_SUBSCRIPTION_URL]
+section = "nodes"
+order = 61
+description = "The URL the device-cap refusal points operators at (the typed 409 `device_cap_reached` and the Subscription card); empty means the product's default subscription URL, so the refusal always carries a link."
+
+[variables.ACCOUNT_DEVICE_LIMIT]
+section = "nodes"
+order = 62
+description = "How many admitted devices one account may hold, checked at every admission in addition to the instance-wide cap (both must pass). `0` (the default) is no per-account limit, so an install that does not set it is unchanged. It bounds new admissions only: an account above it keeps every device it has, connected and taking commands, and is refused only the next one (409 `account_device_limit_reached`). An account's override (`accounts.device_limit`, optionally ending at `accounts.device_limit_until`) replaces it while in force, and the account returns to this value when the override ends. The instance operator's account is never bound by it. A value that is not a non-negative integer leaves it off and is named by a startup advisory. See `docs/ENTITLEMENT.md`."
+
+[variables.ACCOUNT_DEVICE_LIMIT_CONTACT]
+section = "nodes"
+order = 63
+description = "Where an account at its device limit is told to write for more devices, typically an e-mail address: shown on its Subscription page and in the refusal, and made a mailto link when it is an address. One line of at most 254 characters; anything else is ignored with a startup advisory, as is a limit set with no contact."

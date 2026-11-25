@@ -1,0 +1,203 @@
+name: CI
+
+# The public repository's test workflow. Every job runs on a GitHub-hosted
+# runner by default, so a pull request from a fork executes nowhere near any
+# machine of ours, and no job here sees a secret. The publication guard lives
+# in guard.yml, which carries no path filter: a docs-only change is exactly
+# where an identifier lands.
+#
+# Two repository variables shape the workflow so that a fork or a copy of
+# the repository runs it without edits:
+#   PUBLIC_CI_ENABLED  — "true" turns the jobs on (unset: every job is skipped,
+#                        so adding this file to a repository changes nothing
+#                        until the variable is set).
+#   PUBLIC_CI_RUNS_ON  — a JSON array naming the runner labels; unset means
+#                        the hosted Ubuntu runner.
+#
+# No job may use a self-hosted label literally, `pull_request_target`, or
+# `workflow_run`; tools/publication-guard/check_workflows.py asserts that.
+#
+# The filter is `paths-ignore`, a denylist, on purpose: an allowlist of code
+# paths fails CLOSED when a path is forgotten, and CI silently not running is
+# indistinguishable from CI passing.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    services:
+      postgres:
+        image: postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: backend_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Build, vet, test
+        working-directory: backend
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./...
+      # The entitlement signer's default build is standard library only and
+      # pins the same toolchain as the backend, so it rides this job's Go
+      # setup. Its tests are what keep the two implementations of the file
+      # format in step. Its `-tags piv` build (the YubiKey transport, cgo) is
+      # vetted and scanned in security.yml, where the C library is installed.
+      - name: Entitlement signer (build, vet, test)
+        working-directory: tools/entitlement-signer
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./...
+      # The DSN-gated tests skip without a database; here the database exists,
+      # so a skip is a failure — a guard that never runs is a dead guard.
+      - name: Integration tests against Postgres (a skip is a failure)
+        working-directory: backend
+        env:
+          BACKEND_TEST_DSN: host=localhost port=5432 user=postgres password=postgres dbname=backend_test sslmode=disable
+        run: |
+          set -o pipefail
+          # Every package that has a DSN-gated test, found rather than listed:
+          # a new one in another package must not be born skipped. One
+          # package at a time, since they share the database.
+          pkgs=$(grep -rl 'BACKEND_TEST_DSN' --include='*_test.go' . | xargs -n1 dirname | sort -u)
+          [ -n "$pkgs" ] || { echo "::error::no package names BACKEND_TEST_DSN — the search is broken"; exit 1; }
+          echo "$pkgs"
+          # shellcheck disable=SC2086
+          go test -p 1 -v $pkgs 2>&1 | tee /tmp/sql.log
+          # Unanchored: a skip inside a subtest is indented.
+          if grep -q -- "--- SKIP" /tmp/sql.log; then
+            grep -- "--- SKIP" /tmp/sql.log
+            echo "::error::integration tests skipped — the DSN did not reach them"
+            exit 1
+          fi
+      # gorm's Save re-runs a no-row UPDATE as an INSERT, which resurrects a
+      # row deleted underneath an in-flight request. The two spellings are one
+      # character apart, so this is a grep rather than a vet check.
+      - name: No gorm Save in the repository layer
+        run: |
+          hits=$(grep -rn --include='*.go' 'Save(' backend/pkg/webapp/infrastructure/database/sql | grep -v '_test\.go:' || true)
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            echo "::error::gorm Save in the repository layer — use updateAllColumns; it cannot insert"
+            exit 1
+          fi
+      # Guards that read other trees (frontend, postman, the community compose
+      # at the repository root) must RUN from the full checkout; they skip
+      # inside a module-only build. The compose pins run under
+      # ORCHESTRATOR_CONTRACT_STRICT=1, which fails rather than skips when the
+      # file is absent.
+      - name: Cross-tree guards
+        run: |
+          set -o pipefail
+          (cd backend && go test -v -run 'TestFrontendAnyScopeReadsMatch' ./pkg/webapp/domain/authz/ 2>&1 | tee /tmp/guard1.log)
+          (cd backend && go test -v -run 'TestEveryPostmanRequestNamesARealRoute' ./pkg/webapp/infrastructure/http_server/ 2>&1 | tee /tmp/guard2.log)
+          (cd backend && ORCHESTRATOR_CONTRACT_STRICT=1 go test -v -run '^(TestCommunityCompose|TestBackendMemoryLimitIsReadFromTheBackendService)' ./pkg/webapp/application/config/ 2>&1 | tee /tmp/guard3.log)
+          if grep -hq -- "--- SKIP" /tmp/guard1.log /tmp/guard2.log /tmp/guard3.log; then
+            echo "::error::a cross-tree guard skipped in the full checkout — it must RUN here"
+            exit 1
+          fi
+
+  agent:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: agent/go.mod
+          cache-dependency-path: agent/go.sum
+      # The agent's Linux-only handlers run their tests only on Linux, which is
+      # what the hosted runner is; a macOS developer never exercises them.
+      - name: Build, vet, test
+        working-directory: agent
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./...
+
+  eeprom-signer:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The signer's tests need python3 and GNU sed, both present on the hosted
+      # image; the escalation test that skips on BSD sed runs here.
+      - name: Run eeprom-signer tests
+        run: make eeprom/test
+
+  installer:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # The installer's decisions (what it accepts as an address, what it
+      # asks, the environment file of each shape) under the shell `curl | sh`
+      # runs it with. Docker and the network are not involved.
+      - name: Run the installer tests
+        run: |
+          sh -n tools/install/install.sh
+          sh tools/install/install_test.sh
+
+  frontend:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      # pnpm 9 by the Dockerfile's pin: pnpm 10 refuses unapproved dependency
+      # build scripts and its lockfile fails --frozen-lockfile in the image.
+      - name: Install
+        working-directory: frontend
+        run: |
+          corepack enable
+          npx pnpm@9 install --frozen-lockfile
+      - name: Typecheck
+        working-directory: frontend
+        run: npx pnpm@9 run typecheck
+      # Build BEFORE the unit tests: a bundler regression is what a vite or
+      # rollup bump carries, and tsc does not run the bundler.
+      - name: Build
+        working-directory: frontend
+        run: npx pnpm@9 run build
+      - name: Unit tests
+        working-directory: frontend
+        run: npx pnpm@9 run test
+      - name: Lint
+        working-directory: frontend
+        run: npx pnpm@9 run lint

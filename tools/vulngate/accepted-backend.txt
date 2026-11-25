@@ -1,0 +1,5 @@
+# Advisories read and accepted for the backend module, judged by
+# tools/vulngate/vulngate.py. One entry per line:
+#   <OSV id>  <review-by YYYY-MM-DD>  <reason>
+# An entry past its date fails the run, and so does an entry the scanner no
+# longer reports. Nothing is accepted at present.

@@ -1,0 +1,512 @@
+{
+  "info": {
+    "_postman_id": "orchestrator-api-members-authz",
+    "name": "Orchestrator Platform API - Members, Authz & Roles",
+    "description": "API collection for Orchestrator Platform: account membership, invites, the caller's permission map and the tunable role permissions.\n\nEvery mutating member endpoint is super_admin-only and is guarded by the last-super_admin invariant.\n\nSet member_user_id / invite_id / invite_token / ou_id in the environment, or let the Create Invite test script fill the invite ones.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Members",
+      "item": [
+        {
+          "name": "List Members",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members"
+              ]
+            },
+            "description": "Members of the current account with their role bindings resolved."
+          },
+          "response": []
+        },
+        {
+          "name": "Replace Member Bindings",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/members/{{member_user_id}}/bindings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members",
+                "{{member_user_id}}",
+                "bindings"
+              ]
+            },
+            "description": "Declaratively REPLACES the member's bindings — whatever is not listed is removed. ou_id null means account-wide. Refuses a change that would leave the account with no active super_admin (enforced in-transaction under an advisory lock).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bindings\": [\n    {\n      \"role\": \"admin\",\n      \"ou_id\": null\n    },\n    {\n      \"role\": \"operator\",\n      \"ou_id\": \"{{ou_id}}\"\n    }\n  ]\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Enable / Disable Member",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/members/{{member_user_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members",
+                "{{member_user_id}}",
+                "status"
+              ]
+            },
+            "description": "active|disabled. A disabled member keeps their bindings but cannot authenticate into the account, and their live WebSockets are closed immediately.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"disabled\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Member",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/members/{{member_user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members",
+                "{{member_user_id}}"
+              ]
+            },
+            "description": "Removes the membership. Same last-super_admin guard as the binding replace."
+          },
+          "response": []
+        },
+        {
+          "name": "Leave Account (self)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/members/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members",
+                "me"
+              ]
+            },
+            "description": "The caller leaves the account. Refused if they are the last active super_admin."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Invites",
+      "item": [
+        {
+          "name": "List Invites",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/members/invites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members",
+                "invites"
+              ]
+            },
+            "description": "Outstanding invites for this account."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Invite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/members/invites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members",
+                "invites"
+              ]
+            },
+            "description": "Pinned to email+role+OU. The plaintext token comes back EXACTLY ONCE (saved here to invite_token); `delivered` reports whether the email actually went out.\n\nAn email that is not an address answers 400.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"teammate@example.com\",\n  \"role\": \"operator\",\n  \"ou_id\": null\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201 || pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data) {",
+                  "        if (response.data.token) { pm.environment.set('invite_token', response.data.token); }",
+                  "        if (response.data.id) { pm.environment.set('invite_id', response.data.id); }",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Resend Invite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/members/invites/{{invite_id}}/resend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members",
+                "invites",
+                "{{invite_id}}",
+                "resend"
+              ]
+            },
+            "description": "Re-sends the invite email. Mints a fresh token, so any earlier link stops working."
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke Invite",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/members/invites/{{invite_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members",
+                "invites",
+                "{{invite_id}}"
+              ]
+            },
+            "description": "Invalidates the invite."
+          },
+          "response": []
+        },
+        {
+          "name": "Accept Invite (existing user)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/invites/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "invites",
+                "accept"
+              ]
+            },
+            "description": "Joins the AUTHENTICATED user to the invite's account. Their email must match the invited address; the token is single-use.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{invite_token}}\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Preview Invite (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/invite/preview?token={{invite_token}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "invite",
+                "preview"
+              ],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{invite_token}}"
+                }
+              ]
+            },
+            "description": "Public, rate-limited. Lets the invite page branch on the INVITATION rather than the session — an existing user is offered 'sign in to accept' instead of a signup form the server would reject."
+          },
+          "response": []
+        },
+        {
+          "name": "Invite Signup (public)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/invite-signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "invite-signup"
+              ]
+            },
+            "description": "Public, rate-limited, and the token in the body IS the credential. Creates the user and the membership in one step.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{invite_token}}\",\n  \"name\": \"New Teammate\",\n  \"password\": \"password123\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Permissions & Role Settings",
+      "item": [
+        {
+          "name": "My Permissions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/permissions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "permissions"
+              ]
+            },
+            "description": "action -> scope map ('*' = account-wide, otherwise a list of OU ids) for the caller in the current account. This is what drives UI gating; the backend stays the source of truth."
+          },
+          "response": []
+        },
+        {
+          "name": "List Role Settings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/account-role-settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account-role-settings"
+              ]
+            },
+            "description": "The account's overrides of the tunable role permissions."
+          },
+          "response": []
+        },
+        {
+          "name": "Set Role Permission Override",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/account-role-settings",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account-role-settings"
+              ]
+            },
+            "description": "super_admin only (member.manage). Only whitelisted actions and non-super_admin roles are accepted — super_admin cannot be tuned, so an account can never be locked out of its own administration.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"operator\",\n  \"action\": \"node.reboot\",\n  \"allowed\": false\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Role Permissions",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/account-role-settings?role=operator&action=node.reboot",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account-role-settings"
+              ],
+              "query": [
+                {
+                  "key": "role",
+                  "value": "operator"
+                },
+                {
+                  "key": "action",
+                  "value": "node.reboot"
+                }
+              ]
+            },
+            "description": "Reverts to built-in defaults. With `action` set, resets that one permission; omit it to reset the whole role."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

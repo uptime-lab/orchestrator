@@ -1,0 +1,50 @@
+# Synthetic shapes the public shape checker accepts. Data, not code: edit here,
+# never in check_public_shape.py. Format: `<kind> <value>`; `#` starts a comment.
+#
+#   serial   regex over a lowercase 16-hex token. Only shapes that are OBVIOUSLY
+#            made up belong here: a family prefix, a run of one digit, a value
+#            that is almost all zeros. A real device serial is eight random hex
+#            digits behind the prefix, so nothing here may admit a random tail.
+#   mac-nic  regex over the lowercase NIC half (xx:xx:xx) of a MAC address that
+#            carries a real vendor prefix.
+#   ip       an IPv4 address or CIDR that the public tree may use as an example.
+#            RFC 5737 documentation ranges are accepted by the checker itself and
+#            need no entry; this list is for the few well-known resolvers and the
+#            generic placeholder subnets a reader expects in an example.
+
+# Hex-speak families behind a prefix: dead…, feed…, cafe…, f00d…, c0de… and friends.
+serial ^10000000(abcd|0000|dead|feed|1234|cafe|beef|0001|f00d|d00d|c0de|babe|face|b16b)
+serial ^00000000(abcd|0000|dead|feed|1234|cafe|beef|0001|f00d|d00d|c0de|babe|face|b16b)
+serial ^1000000000000001$
+# Twelve leading zeros: a counter, not a device.
+serial ^0{12}[0-9a-f]{4}$
+# One digit repeated, with or without the prefix, or a repeated run opening the tail.
+serial ^([0-9a-f])\1{15}$
+serial ^10000000([0-9a-f])\1{7}$
+serial ^10000000([0-9a-f])\1{3}[0-9a-f]{4}$
+# Keyboard sequences.
+serial ^(0123456789abcdef|fedcba9876543210|1000000012345678|abcdef0123456789|abcdefabcdefabcd)$
+
+mac-nic ^00:00:00$
+mac-nic ^ff:ff:ff$
+mac-nic ^(12:34:56|ab:cd:ef|aa:bb:cc|de:ad:be|be:ef:00|ca:fe:00)$
+mac-nic ^([0-9a-f]{2})(:\1){2}$
+
+# Public resolvers and classic placeholders a reader expects in an example.
+ip 8.8.8.8
+ip 1.1.1.1
+ip 9.9.9.9
+ip 1.2.3.4
+ip 5.6.7.8
+ip 169.254.169.254
+# Bases of well-known blocks, written as a bare address in prose and configs.
+ip 100.64.0.0
+ip 198.18.0.0
+ip 192.0.0.0
+ip 192.168.0.0
+# Generic example subnets: the public tree uses these as placeholders in docs
+# and sample configs, so the first /24 of each private block is accepted.
+# Every other private address is a candidate real one and is flagged.
+ip 192.168.1.0/24
+ip 10.0.0.0/24
+ip 172.16.0.0/24

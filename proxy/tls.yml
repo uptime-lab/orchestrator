@@ -1,0 +1,124 @@
+# Routes of the bundled HTTPS proxy (the `proxy-tls` profile of
+# docker-compose.community.yml). The file is a template: Traefik's file
+# provider fills in the DOMAIN (and the other `env` values) it was started
+# with, again each time the file changes.
+#
+# Port 80 keeps /http-boot on plain HTTP — the Raspberry Pi boot ROM fetches
+# its image there over HTTP and follows no redirect, and the recovery
+# system's clock sync (/http-boot/time) cannot speak HTTPS — and sends
+# everything else to HTTPS, /net_install included: the per-device bootloader
+# packages under it are fetched by the agent from the platform URL, which is
+# https here, and a capability URL for one must never travel in cleartext.
+#
+# Every HTTPS router adds Strict-Transport-Security, so a browser that has
+# seen this server once never sends its tokens over port 80 again. Not on
+# port 80 itself: a browser ignores the header over HTTP, and the boot ROM
+# does not read it.
+http:
+  routers:
+    api:
+      rule: "Host(`{{ env "DOMAIN" }}`) && PathPrefix(`/api`)"
+      entryPoints: [websecure]
+      service: backend
+      middlewares: [hsts, strip-api]
+      tls: {certResolver: letsencrypt}
+    ws:
+      rule: "Host(`{{ env "DOMAIN" }}`) && PathPrefix(`/ws`)"
+      entryPoints: [websecure]
+      service: backend
+      middlewares: [hsts, strip-ws]
+      tls: {certResolver: letsencrypt}
+    device-https:
+      rule: "Host(`{{ env "DOMAIN" }}`) && (PathPrefix(`/cdn`) || PathPrefix(`/capture`) || PathPrefix(`/http-boot`) || PathPrefix(`/net_install`) || PathPrefix(`/source/`) || Path(`/install.sh`) || Path(`/uninstall.sh`))"
+      entryPoints: [websecure]
+      service: backend
+      middlewares: [hsts]
+      tls: {certResolver: letsencrypt}
+    device-http:
+      rule: "PathPrefix(`/http-boot`)"
+      entryPoints: [web]
+      service: backend
+    redirect-https:
+      rule: "Host(`{{ env "DOMAIN" }}`) && !PathPrefix(`/http-boot`)"
+      entryPoints: [web]
+      middlewares: [to-https]
+      service: noop@internal
+    spa:
+      rule: "Host(`{{ env "DOMAIN" }}`)"
+      entryPoints: [websecure]
+      service: frontend
+      middlewares: [hsts]
+      priority: 1
+      tls: {certResolver: letsencrypt}
+  middlewares:
+    # One year, this host only: a subdomain may be another service that
+    # still needs plain HTTP, and preloading is the operator's own choice.
+    hsts:
+      headers: {stsSeconds: 31536000}
+    strip-api:
+      stripPrefix: {prefixes: ["/api"]}
+    strip-ws:
+      stripPrefix: {prefixes: ["/ws"]}
+    to-https:
+      redirectScheme: {scheme: https, permanent: true}
+  services:
+    backend:
+      loadBalancer: {servers: [{url: "http://backend:8080"}]}
+    frontend:
+      loadBalancer: {servers: [{url: "http://frontend:8080"}]}
+
+tcp:
+  routers:
+    # Port 443 (the `https` entry point) holds no HTTP route: this one route
+    # takes every TLS connection, whatever name it asks for, and passes it
+    # unopened to `websecure` on the container's loopback, which terminates
+    # TLS and serves the routes above. The hop exists for its timeout: a
+    # connection here is closed if no ClientHello arrives within the
+    # entry point's readTimeout, a bound `websecure` itself cannot have
+    # without also cutting uploads (docker-compose.community.yml).
+    https:
+      rule: "HostSNI(`*`)"
+      entryPoints: [https]
+      service: websecure
+      middlewares: [https-inflight]
+      tls: {passthrough: true}
+    grpc:
+      rule: "HostSNI(`{{ env "DOMAIN" }}`)"
+      entryPoints: [grpc]
+      service: grpc
+      middlewares: [grpc-inflight]
+      tls: {certResolver: letsencrypt}
+  middlewares:
+    # At most this many simultaneous agent connections from ONE client
+    # address. Every device behind a NAT shares its site's address, and an
+    # agent holds one connection for as long as it runs, so the bound is a
+    # site's whole fleet: a device past it is closed here, before the
+    # backend sees it. PROXY_AGENT_CONNECTIONS_PER_ADDRESS in .env sets it
+    # (docs/INSTALL.md, "The agent port").
+    grpc-inflight:
+      inFlightConn:
+        amount: {{ env "PROXY_AGENT_CONNECTIONS_PER_ADDRESS" }}
+    # At most this many simultaneous HTTPS connections from ONE client
+    # address, idle ones included: the bound on what one address can hold
+    # open after the ClientHello, where no timeout applies (a client that
+    # stalls the rest of the TLS handshake, or completes it and then sends
+    # half a request). A browser holds a few,
+    # and a site's devices behind one NAT may download at once; each idle
+    # connection costs the proxy about 130 KB, so the default (1024) holds
+    # one address to about 130 MB. PROXY_HTTPS_CONNECTIONS_PER_ADDRESS in
+    # .env sets it.
+    https-inflight:
+      inFlightConn:
+        amount: {{ env "PROXY_HTTPS_CONNECTIONS_PER_ADDRESS" }}
+  services:
+    websecure:
+      loadBalancer:
+        servers: [{address: "127.0.0.1:8443"}]
+        serversTransport: proxy-protocol
+    grpc:
+      loadBalancer:
+        servers: [{address: "backend:50051"}]
+        serversTransport: proxy-protocol
+  serversTransports:
+    proxy-protocol:
+      proxyProtocol: {version: 2}

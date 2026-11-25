@@ -1,0 +1,17 @@
+id: zerotier
+name: ZeroTier network
+description: >-
+  Joins the node to a ZeroTier virtual network. Paste the network ID from
+  ZeroTier Central; a plain variable is fine. The node joins as pending, and
+  traffic flows only after you authorize it there.
+details: >-
+  Installed from the official package using ZeroTier's signed apt repository.
+  Removing the assignment keeps ZeroTier installed and the network joined.
+class: reconciled
+params:
+  - name: network_id
+    label: Network ID
+    description: The 16-character ZeroTier network ID. Authorize the node in ZeroTier Central after the first apply.
+    type: string
+    required: true
+    placeholder: "8056c2e21c000001" # publication-guard: allow serial-shape — ZeroTier's public "Earth" network id, a documented example value, not a device serial

@@ -1,0 +1,173 @@
+name: Publication guard
+
+# The publication guard, split out of ci.yml so that NO path filter applies:
+# prose is where a serial, an address or a tenant name lands, and GitHub keeps
+# a required check whose workflow a path filter skipped in Pending, which
+# would push an operator to un-require the check exactly for docs-only
+# changes. Every push to main, every pull request and every merge-queue run
+# executes both jobs, whatever the change touches; check_workflows.py's
+# guard-path-filter rule fails this file if a filter comes back.
+#
+# Gated and placed by the same two repository variables as ci.yml
+# (PUBLIC_CI_ENABLED, PUBLIC_CI_RUNS_ON). No job may use a self-hosted label
+# literally, `pull_request_target`, or `workflow_run`;
+# tools/publication-guard/check_workflows.py asserts that.
+#
+# There is deliberately no `workflow_dispatch`: the private half holds the
+# HMAC key, and a dispatch from a branch whose copy of this file prints it
+# would turn the digest file into an offline oracle.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: guard-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # The public half: shapes only, no secret, and it must pass on a fork. The
+  # repository contracts ride along.
+  publication-guard:
+    if: vars.PUBLIC_CI_ENABLED == 'true'
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Shape check on the tree
+        run: python3 tools/publication-guard/check_public_shape.py --tree . --format github
+      - name: Shape check on the new commits
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF" --depth=200 || true
+          python3 tools/publication-guard/check_public_shape.py --range "origin/$BASE_REF..HEAD" --format github
+      - name: Generated proto copies are identical and the generators pinned
+        run: bash tools/publication-guard/check_proto_copies.sh
+      - name: The three agent-signing trust stores hold the same keys
+        run: bash tools/publication-guard/check_trust_stores.sh
+      - name: Every cited document exists
+        run: python3 tools/publication-guard/check_doc_citations.py --root .
+      - name: Licence map holds
+        run: python3 tools/publication-guard/check_licence_boundary.py --root .
+      - name: No workflow runs untrusted code on a private runner
+        run: python3 tools/publication-guard/check_workflows.py .github/workflows
+      # docs/CONFIGURATION.md is generated from the configuration loader; a
+      # loader change without a regenerated page, or a new variable without
+      # a description, fails here rather than drifting.
+      - name: Configuration reference is current
+        run: |
+          python3 tools/configref/configref.py --check
+          python3 -m unittest tools/configref/configref_test.py
+      - name: Guard self-test
+        run: |
+          python3 -m unittest discover -s tools/publication-guard -p '*_test.py'
+          python3 -m unittest tools/vulngate/vulngate_test.py
+          bash tools/publication-guard/check_proto_copies_test.sh
+          bash tools/publication-guard/check_trust_stores_test.sh
+      # THIRD-PARTY-NOTICES.md (root and agent/) is generated from
+      # the modules and packages actually compiled and bundled; a dependency
+      # change without a regenerated file fails here. The generator reads the
+      # Go module cache and an installed frontend, so both are fetched first.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Third-party notices are current
+        run: |
+          (cd frontend && npx --yes pnpm@9 install --frozen-lockfile --prod --ignore-scripts)
+          python3 -m unittest tools/notices/notices_test.py
+          python3 tools/notices/notices.py --check
+
+  # The private half, in digest form: the secrets hold HMAC digests of the
+  # private identifier list and the key, never a token. They are ENVIRONMENT
+  # secrets of `publication-guard`, whose deployment-branch policy admits
+  # `main` and `gh-readonly-queue/main/*` only, so a job on any other ref --
+  # including a branch that rewrote this file -- cannot read them. The job
+  # runs on push to main and in the merge queue, never on a pull request. It
+  # is the required check that decides a merge.
+  #
+  # The CHECKER it runs is main's copy, never the one in the tree under test:
+  # in the merge queue that tree is the queued pull request merged onto main,
+  # so running its checker would hand PUBLICATION_GUARD_KEY to Python the
+  # pull request wrote (one print of the key, or one request out, and the
+  # digests become an offline oracle). main's copy already passed this gate.
+  # A checker change therefore takes effect from the run after it lands, not
+  # in its own queue run. This file itself still comes from the queued tree,
+  # so an edit to it is reviewed as an edit to the key's handling.
+  private-identifier-guard:
+    if: vars.PUBLIC_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'merge_group')
+    runs-on: ${{ fromJSON(vars.PUBLIC_CI_RUNS_ON || '["ubuntu-24.04"]') }}
+    environment: publication-guard
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      # The digest payload is several times GitHub's 48 KB per-secret limit,
+      # so it arrives as the fixed set of environment secrets
+      # PUBLICATION_GUARD_DIGESTS_1..12 (a workflow cannot enumerate secret
+      # names; generation refuses a payload needing more). assemble_digests.sh
+      # joins them in order and FAILS on an empty part 1..n or a stale part
+      # beyond n -- an unset secret is an empty string, never a smaller table
+      # -- and verify-digests checks every part header, the row count and the
+      # SHA-256 over the rows; the scan then refuses a key the payload was
+      # not made with. Both are main's copies, like the checker.
+      - name: Fetch the checker and assemble the digests
+        env:
+          PUBLICATION_GUARD_DIGESTS_1: ${{ secrets.PUBLICATION_GUARD_DIGESTS_1 }}
+          PUBLICATION_GUARD_DIGESTS_2: ${{ secrets.PUBLICATION_GUARD_DIGESTS_2 }}
+          PUBLICATION_GUARD_DIGESTS_3: ${{ secrets.PUBLICATION_GUARD_DIGESTS_3 }}
+          PUBLICATION_GUARD_DIGESTS_4: ${{ secrets.PUBLICATION_GUARD_DIGESTS_4 }}
+          PUBLICATION_GUARD_DIGESTS_5: ${{ secrets.PUBLICATION_GUARD_DIGESTS_5 }}
+          PUBLICATION_GUARD_DIGESTS_6: ${{ secrets.PUBLICATION_GUARD_DIGESTS_6 }}
+          PUBLICATION_GUARD_DIGESTS_7: ${{ secrets.PUBLICATION_GUARD_DIGESTS_7 }}
+          PUBLICATION_GUARD_DIGESTS_8: ${{ secrets.PUBLICATION_GUARD_DIGESTS_8 }}
+          PUBLICATION_GUARD_DIGESTS_9: ${{ secrets.PUBLICATION_GUARD_DIGESTS_9 }}
+          PUBLICATION_GUARD_DIGESTS_10: ${{ secrets.PUBLICATION_GUARD_DIGESTS_10 }}
+          PUBLICATION_GUARD_DIGESTS_11: ${{ secrets.PUBLICATION_GUARD_DIGESTS_11 }}
+          PUBLICATION_GUARD_DIGESTS_12: ${{ secrets.PUBLICATION_GUARD_DIGESTS_12 }}
+        run: |
+          # main's copies (see the job comment), never the tree's.
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          for f in private_identifiers_ci.py assemble_digests.sh; do
+            git show "origin/main:tools/publication-guard/$f" > "$RUNNER_TEMP/$f" \
+              || { echo "::error::main carries no tools/publication-guard/$f"; exit 1; }
+            [ -s "$RUNNER_TEMP/$f" ] || { echo "::error::main's $f is empty"; exit 1; }
+          done
+          bash "$RUNNER_TEMP/assemble_digests.sh" "$RUNNER_TEMP/guard.digests"
+          python3 "$RUNNER_TEMP/private_identifiers_ci.py" verify-digests --digests "$RUNNER_TEMP/guard.digests"
+      - name: Scan the tree and the new commits (digests only; no token is ever printed)
+        env:
+          PUBLICATION_GUARD_KEY: ${{ secrets.PUBLICATION_GUARD_KEY }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          set -e
+          check() {
+            python3 "$RUNNER_TEMP/private_identifiers_ci.py" check \
+              --digests "$RUNNER_TEMP/guard.digests" --key-env PUBLICATION_GUARD_KEY --repo . "$@"
+          }
+          check --tracked
+          before="${PUSH_BEFORE:-$QUEUE_BASE}"
+          case "$before" in 0000000000000000000000000000000000000000) before="" ;; esac
+          # A force push can name a commit this clone does not have.
+          if [ -n "$before" ] && ! git cat-file -e "$before^{commit}" 2>/dev/null; then before=""; fi
+          if [ -z "$before" ] && git rev-parse -q --verify 'HEAD~1^{commit}' >/dev/null; then before="HEAD~1"; fi
+          if [ -n "$before" ]; then
+            check --range "$before..HEAD"
+          else
+            # The first push of a one-commit repository: the tree above is
+            # the whole change; the root commit's message is what is left.
+            check --commit HEAD --messages-only
+          fi

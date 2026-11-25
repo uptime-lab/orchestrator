@@ -1,0 +1,29 @@
+# DS3231 battery-backed real-time clock on I2C (address 0x68). Needs only
+# pins 1-10 functions, so it fits both the blade's expansion header and any
+# full 40-pin header — one definition, computed compatibility.
+id: ds3231-rtc
+name: DS3231 RTC module
+description: Battery-backed real-time clock on I2C. Keeps time across power loss on boards with no onboard RTC.
+needs: [i2c1, 3v3]
+i2c_address: "0x68"
+overlays:
+  - "dtparam=i2c_arm=on"
+  - "dtoverlay=i2c-rtc,ds3231"
+setup:
+  # Make the OS trust the hardware clock: disable fake-hwclock and switch
+  # hwclock-set to --hctosys. Implemented natively by the agent.
+  - kind: rtc_hwclock
+# Probe by the registered RTC driver's NAME, not path existence: Pi 5 / CM5
+# boards carry a built-in rtc0, so "/sys/class/rtc/rtc0 exists" would confirm
+# this module on every board of that family whether or not it is plugged in.
+#
+# The name to match is the KERNEL DRIVER's, and Linux has no ds3231 driver:
+# drivers/rtc/rtc-ds1307.c serves the whole family, so a DS3231 bound through
+# `dtoverlay=i2c-rtc,ds3231` reports "rtc-ds1307 1-0068" and a "ds3231" probe
+# never matches.
+# Accepting the ds1307 token keeps the property this probe exists for: no
+# built-in RTC carries it — "rpi-rtc" does not — so the false confirmation
+# the paths probe would give is still refused.
+probe:
+  rtc_name_any: ["ds3231", "ds1307"]
+capabilities: [rtc]

@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400 499;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 500 699;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+}
+
+:root {
+  font-family: 'JetBrains Mono', Inter, system-ui, Avenir, Helvetica, Arial,
+    sans-serif;
+  line-height: 1.5;
+  font-weight: 500;
+
+  color-scheme: light dark;
+  color: white;
+  background-color: #0b0e14;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: #0b0e14;
+}
+
+/* Reserve the scrollbar track so content that toggles a vertical scrollbar
+   (e.g. switching between short and tall panels) doesn't shift the layout. */
+html {
+  scrollbar-gutter: stable;
+}

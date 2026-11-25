@@ -1,0 +1,5 @@
+# Advisories read and accepted for the agent module, judged by
+# tools/vulngate/vulngate.py. One entry per line:
+#   <OSV id>  <review-by YYYY-MM-DD>  <reason>
+# Nothing is accepted for the agent: it runs as root on managed devices, so a
+# reachable advisory is fixed, not argued.

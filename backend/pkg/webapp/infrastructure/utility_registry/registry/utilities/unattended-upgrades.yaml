@@ -1,0 +1,28 @@
+id: unattended_upgrades
+name: Security updates
+description: >-
+  Applies apt security updates automatically via the distro's
+  unattended-upgrades. Automatic reboots are always off; a kernel update
+  takes effect only after you reboot the device.
+details: >-
+  Other package installs may wait briefly while the daily run holds the apt
+  lock; this is normal.
+class: reconciled
+params:
+  - name: security_only
+    label: Security updates only
+    description: On = security updates only; off = also regular package updates (more changes, more fixes).
+    type: bool
+    default: true
+  - name: update_interval_days
+    label: Run every (days)
+    description: How often package lists refresh and upgrades run.
+    type: int
+    default: 1
+    min: 1
+    max: 7
+  - name: remove_unused_deps
+    label: Autoremove unused dependencies
+    description: Keep the package set tidy after upgrades.
+    type: bool
+    default: true

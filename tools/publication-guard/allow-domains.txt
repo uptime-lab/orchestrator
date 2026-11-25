@@ -1,0 +1,96 @@
+# Domains the public shape checker accepts in hostnames and e-mail addresses.
+# Data, not code. Format: `<kind> <value>`; `#` starts a comment.
+#
+#   domain  a registrable domain; every host under it is accepted. `example.*`
+#           accepts example.<any tld>. Reserved names without a dot (`test`,
+#           `invalid`, `localhost`, `example`) are accepted here too.
+#   email   a domain accepted on the right-hand side of an e-mail address.
+#           A domain listed only as `domain` is NOT an accepted mailbox host:
+#           a vendor's site in a link is routine, a mailbox at it is a person.
+
+email example.*
+email example
+email test
+email invalid
+email localhost
+email orchestrator.sh
+email users.noreply.github.com
+email github.com
+
+domain example.*
+domain example
+domain test
+domain invalid
+domain localhost
+domain orchestrator.sh
+domain github.com
+domain githubusercontent.com
+domain github.io
+domain google.com
+domain googleapis.com
+domain gmail.com
+domain raspberrypi.com
+domain raspberrypi.org
+domain tailscale.com
+domain zerotier.com
+domain docker.io
+domain docker.com
+domain ghcr.io
+domain debian.org
+domain ubuntu.com
+domain golang.org
+domain go.dev
+domain pkg.go.dev
+domain npmjs.com
+domain nodejs.org
+domain mozilla.org
+domain w3.org
+domain ietf.org
+domain rfc-editor.org
+domain wikipedia.org
+domain kernel.org
+domain freedesktop.org
+domain gnu.org
+domain apache.org
+domain opensource.org
+domain spdx.org
+domain fcl.dev
+domain letsencrypt.org
+domain postman.com
+domain swagger.io
+domain openapis.org
+domain json-schema.org
+domain schemastore.org
+domain yarnpkg.com
+domain pnpm.io
+domain vitejs.dev
+domain tanstack.com
+domain react.dev
+domain tailwindcss.com
+domain effector.dev
+domain grpc.io
+domain protobuf.dev
+domain buf.build
+domain jwt.io
+domain openid.net
+domain w3id.org
+domain webauthn.io
+domain fidoalliance.org
+domain yubico.com
+domain gnupg.org
+domain openssh.com
+domain openssl.org
+domain busybox.net
+domain buildroot.org
+# The Code of Conduct's attribution links to its source text.
+domain contributor-covenant.org
+# Go module hosts and other package registries the modules import from.
+domain google.golang.org
+domain cloud.google.com
+domain opentelemetry.io
+domain gorm.io
+domain gopkg.in
+domain k8s.io
+domain cel.dev
+domain uber.org
+domain visualstudio.com

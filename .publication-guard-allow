@@ -1,0 +1,3 @@
+# Paths exempt from one rule of tools/publication-guard, each with its reason.
+backend/docs/docs.go large-file  # generated API description; it grows with the routes
+backend/docs/swagger.json large-file  # generated API description; it grows with the routes

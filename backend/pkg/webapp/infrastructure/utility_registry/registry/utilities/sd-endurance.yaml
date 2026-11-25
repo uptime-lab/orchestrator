@@ -1,0 +1,38 @@
+id: sd_endurance
+name: Storage endurance
+description: >-
+  Reduces SD-card wear: swap moves to compressed RAM (zram) and journald's
+  disk usage is capped. With journal storage set to "volatile", logs live in
+  RAM only and are lost at every reboot.
+class: reconciled
+params:
+  - name: zram_enabled
+    label: zram swap
+    description: Compressed swap in RAM. Turning it off disables the service but does not uninstall it.
+    type: bool
+    default: true
+  - name: zram_percent
+    label: zram size (% of RAM)
+    description: How much RAM the compressed swap may claim.
+    type: int
+    default: 25
+    min: 5
+    max: 75
+  - name: zram_algo
+    label: Compression
+    description: zstd compresses best; lz4 is lightest on CPU.
+    type: enum
+    enum_values: [zstd, lz4, lzo-rle]
+    default: zstd
+  - name: journald_max_use
+    label: Journal disk cap
+    description: Hard ceiling on journald's on-disk size.
+    type: enum
+    enum_values: ["16M", "64M", "256M", "1G"]
+    default: "64M"
+  - name: journald_storage
+    label: Journal storage
+    description: persistent = on disk (capped above); volatile = RAM only, logs lost at reboot.
+    type: enum
+    enum_values: [persistent, volatile]
+    default: persistent

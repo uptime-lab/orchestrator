@@ -1,0 +1,374 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+  # Only development|dev|local|test opt OUT of fail-closed validation (a
+  # plaintext agent endpoint, an open sign-up, a wildcard CORS origin become
+  # warnings); unset or anything else is production and refuses them. env: APP_ENV
+  environment: "development"
+  # The three secret checks (JWT secret, secrets encryption key, CDN signing
+  # key) refuse the boot in EVERY mode; this opt-in lifts them in a development
+  # mode only, and production ignores it. Every token a server running on a
+  # placeholder key signs is forgeable by anyone with this file.
+  # env: ALLOW_INSECURE_DEV_SECRETS
+  allow_insecure_dev_secrets: false
+  advertisement_url: ""  # Optional: URL to advertise in adoption files (e.g., "https://orchestrator.example.com:8080"). Must include port if not default (80/443). If empty, uses request host.
+  # Public origin of the SPA (e.g. "https://app.example.com"), used to build
+  # absolute links that LEAVE the system — today the email verification link.
+  # Distinct from advertisement_url, which is what devices are told to call.
+  # Required when email.enabled is on. env: APP_BASE_URL
+  app_base_url: ""
+  readTimeout: "30s"
+  writeTimeout: "30s"
+  # Empty admits the FIRST owner of an empty install and then closes sign-up;
+  # set a code to let further organisations register with it. env: SERVER_INVITE_CODE
+  invite_code: ""
+  # true lets any new organisation register WITHOUT a code (the invite code is
+  # then unused); max_accounts still caps it, and 0 there means unbounded.
+  # Needs working mail: each such account is unusable until its owner confirms
+  # the address. env: SERVER_OPEN_REGISTRATION
+  open_registration: false
+  # Unconfirmed open sign-ups allowed at once, counted over the pending window
+  # (hours). env: SERVER_OPEN_REGISTRATION_MAX_PENDING, SERVER_OPEN_REGISTRATION_PENDING_HOURS
+  open_registration_max_pending: 20
+  open_registration_pending_hours: 48
+  cors:
+    enabled: true
+    allowedOrigins:
+      - "*"
+    allowedMethods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+      - "OPTIONS"
+      - "PATCH"
+    allowedHeaders:
+      - "Origin"
+      - "Content-Type"
+      - "Accept"
+      - "Authorization"
+    allowCredentials: true
+    maxAge: 86400
+
+database:
+  host: "localhost"
+  # The host port docker-compose.yml publishes for `make db/up` (container 5432).
+  port: 5434
+  user: "postgres"
+  password: "postgres"
+  dbname: "orchestrator"
+  sslmode: "disable"
+
+jwt:
+  # REQUIRED in production, and there is no usable default: generate one with
+  # `openssl rand -hex 32`. Validation refuses to start on an empty value, on
+  # anything carrying a placeholder marker ("change-in-production", "dev-secret",
+  # …) and on anything shorter than 32 characters, so copying this file into
+  # place unedited cannot ship a publicly known signing key. A forgeable JWT is
+  # a full auth bypass. The CDN and EEPROM capability HMACs do not derive from
+  # it: they take CDN_SIGNING_KEY, which is mandatory (unset refuses the boot,
+  # as above).
+  secret_key: ""
+  access_token_ttl: "24h"
+  refresh_token_ttl: "168h"
+  issuer: "orchestrator"
+
+grpc:
+  host: "0.0.0.0"
+  port: 50051
+  advertisement_url: ""  # Optional: Endpoint to advertise in adoption files (e.g., "orchestrator.example.com:50051"). Must include port. If empty, uses host:port.
+  # TLS for the agent gRPC endpoint. Set both for a public endpoint (SaaS);
+  # leave empty to serve plaintext inside a trusted self-hosted LAN.
+  # env: GRPC_TLS_CERT_FILE / GRPC_TLS_KEY_FILE. Agents use gRPC TLS automatically
+  # when the platform URL is https.
+  tls_cert_file: ""
+  tls_key_file: ""
+  # Set true when an upstream proxy (e.g. Traefik + Let's Encrypt) terminates TLS
+  # for the agent endpoint and the backend only receives plaintext gRPC over a
+  # trusted internal network. Satisfies production validation without backend cert
+  # files. env: GRPC_TLS_TERMINATED_EXTERNALLY
+  tls_terminated_externally: false
+  # Set true to serve the agent endpoint in PLAINTEXT on purpose — a trusted
+  # LAN with no proxy and no certificate, devices reaching this host over an
+  # http:// platform URL. The third shape beside certificate files and external
+  # termination; production refuses an undeclared plaintext listener and boots
+  # a declared one under one advisory. env: AGENT_GRPC_PLAINTEXT_OK
+  plaintext_ok: false
+  # PROXY protocol on the agent listener: "off" (default) or "require". With
+  # "require" every connection must open with a HAProxy PROXY header (v1 or v2)
+  # from the upstream proxy, so the backend sees the agent's real address and
+  # bounds pre-auth streams per source (AGENT_MAX_PREAUTH_STREAMS_PER_SOURCE).
+  # Deliberately no "optional": a header honoured from any peer is forgeable.
+  # Change it TOGETHER with the proxy (Traefik `proxyProtocol.version: 2` on the
+  # TCP service) in one deploy. env: AGENT_GRPC_PROXY_PROTOCOL
+  proxy_protocol: "off"
+
+provisioning:
+  # Directory holding the extracted boot-partition contents (config.txt, cmdline.txt,
+  # kernels, DTBs, overlays/, rootfs.cpio.gz, ...) zipped together with a generated
+  # node-adoption.txt into the SD/USB provisioning bundle. If empty, the SD
+  # provisioning endpoint (POST /api/v1/provisioning/sd) is disabled.
+  sd_payload_dir: ""  # env: PROVISIONING_SD_PAYLOAD_DIR
+
+  # Directory holding the signed bootstrap boot files (boot.img, boot.sig) served by
+  # the network-first HTTP-boot endpoint (GET /http-boot/:serial/:file). Per device the
+  # endpoint serves these (netboot the bootstrap) or returns 404 (fall through to NVMe /
+  # local OS) based on the effective boot_to_os policy. If empty, the endpoint is
+  # disabled. See docs/NETWORK-FIRST.md.
+  http_boot_dir: ""  # env: PROVISIONING_HTTP_BOOT_DIR
+
+secrets:
+  # Key used to AES-256-GCM encrypt stored secret values at rest (it is hashed to
+  # 32 bytes, so any length works cryptographically). Empty refuses the boot in
+  # every mode, like the JWT secret (only allow_insecure_dev_secrets, in a
+  # development mode, runs on an INSECURE fixed development key instead), and
+  # the same rules apply: no placeholder markers, at least 32 characters —
+  # `openssl rand -hex 32`.
+  encryption_key: ""  # env: SECRETS_ENCRYPTION_KEY
+
+ssh_adopt:
+  # "Adopt a device over SSH": the platform connects OUTBOUND to an already
+  # running device, installs the agent and registers the node. A powerful
+  # capability — off unless explicitly enabled. Only meaningful when the
+  # backend can reach the device network (on-prem / same-subnet installs);
+  # SaaS-style deployments should keep it off. env: SSH_ADOPT_ENABLED
+  enabled: false
+
+  # The ONLY base URL devices are told to fetch the agent package from
+  # (SSRF allowlist). Empty disables agent download over SSH.
+  # env: SSH_ADOPT_CDN_BASE_URL
+  allowed_cdn_base_url: ""
+
+  # Where the adoption blob is written on the target device.
+  # env: SSH_ADOPT_ADOPTION_FILE_PATH (default /etc/orchestrator/node-adoption.txt)
+  adoption_file_path: ""
+
+  # Host-key policy for the PREFLIGHT's first contact. The server stores no
+  # fingerprint of its own: a reachable preflight answers with a short-lived
+  # host_key_ticket bound to the caller, the host:port and the key it saw, and
+  # the adoption must present that ticket (or a host_key_fingerprint known out
+  # of band). The adoption never accepts a key on first use, whatever this says.
+  #   "tofu"   - a preflight WITHOUT expected_host_key_fingerprint connects on
+  #              first use and reports first_contact=true.
+  #   "strict" - every preflight must carry expected_host_key_fingerprint,
+  #              obtained out of band; one without is refused. API-only: the UI
+  #              only ever sends a fingerprint an earlier test reported.
+  # env: SSH_ADOPT_HOST_KEY_POLICY
+  host_key_policy: "tofu"
+
+  # Permit authenticating with a forwarded ssh-agent (e.g. a YubiKey forwarded
+  # over `ssh -R`). The socket lives on the BACKEND host, so under multi-user
+  # RBAC this lends the forwarding operator's keys to every user allowed to
+  # SSH-adopt — an on-prem/single-team affordance. Keep off for multi-tenant.
+  # env: SSH_ADOPT_ALLOW_AGENT_AUTH
+  allow_agent_auth: false
+
+  # When set, forwarded-agent auth uses PER-USER sockets: the authenticated
+  # user maps to <dir>/<user-id>.sock, so each operator can only use an agent
+  # they forwarded themselves. Empty keeps the single shared socket from
+  # SSH_AUTH_SOCK (single-operator mode). env: SSH_ADOPT_AGENT_SOCK_DIR
+  agent_sock_dir: ""
+
+  # Restrict which hosts can be preflighted/adopted (the device subnets),
+  # e.g. ["192.0.2.0/24"]. Empty = no restriction. Multi-tenant installs
+  # should set this — preflight is otherwise an authenticated network probe.
+  # env: SSH_ADOPT_ALLOWED_HOST_CIDRS (comma-separated)
+  allowed_host_cidrs: []
+
+# Workflow-execution scale guards: a per-minute cron playbook
+# creates executions forever, so both the stored history and the in-flight set
+# are bounded. 0 disables the respective guard.
+workflow:
+  # Finished (terminal-status) executions older than this many days are swept
+  # hourly together with their per-node state and workflow-issued command
+  # history. In-flight executions are never touched.
+  # env: WORKFLOW_EXECUTION_RETENTION_DAYS
+  execution_retention_days: 30
+
+  # Cap on an account's pending+running executions; manual and scheduled
+  # starts alike are rejected (HTTP 429) at the cap.
+  # env: WORKFLOW_MAX_ACTIVE_EXECUTIONS_PER_ACCOUNT
+  max_active_executions_per_account: 20
+
+  # How many schedule-triggered (cron) playbooks the scheduler honors per
+  # account (oldest first; the rest are skipped with a warning).
+  # env: WORKFLOW_MAX_CRON_PLAYBOOKS_PER_ACCOUNT
+  max_cron_playbooks_per_account: 10
+
+# Per-tenant OS image quotas (a shared hosted instance caps disk per account;
+# a self-hosted install is unrestricted by default).
+image:
+  # Cap for a single image upload in bytes, on top of storage.max_file_size.
+  # 0 = no extra cap. env: IMAGE_MAX_UPLOAD_SIZE
+  max_upload_size: 0
+
+  # How many images an account may have (0 = unlimited).
+  # env: IMAGE_MAX_PER_ACCOUNT
+  max_per_account: 0
+
+  # Delete the uploaded original after a successful compression instead of
+  # retaining it as a safety copy (halves per-image disk; the image can no
+  # longer be re-compressed from the original). env: IMAGE_COMPRESS_REPLACE_ORIGINAL
+  replace_original_on_compress: false
+
+  # Concurrent multipart image uploads the server stages at once, server-wide
+  # and per account. Unlike the quotas above these are ARMED by default and
+  # 0 means the default (6 / 2), never unlimited: a browser upload is parsed
+  # in full into TMPDIR before any quota sees a byte, so this is what keeps
+  # one account from filling the volume every account spills to. A refused
+  # upload answers 429 upload_capacity.
+  # env: IMAGE_MAX_CONCURRENT_UPLOADS, IMAGE_MAX_CONCURRENT_UPLOADS_PER_ACCOUNT
+  max_concurrent_uploads: 6
+  max_concurrent_uploads_per_account: 2
+
+  # Memory bound in MiB for one xz process (compression and multi-threaded
+  # decode). xz sizes itself from physical RAM, not a container limit; 0
+  # means the default (256), never unlimited. env: IMAGE_XZ_MEMLIMIT_MB
+  xz_memlimit_mb: 256
+  # Compression / transcode jobs at once; each is a two-process xz pipeline
+  # bounded per process by xz_memlimit_mb. 0 = default (2), never unlimited.
+  max_concurrent_compressions: 2
+  # Sum of per-process xz limits the running jobs may hold together, in MiB
+  # (a transcode charges two, a plain compression one). 0 = default (two
+  # process limits = exactly one transcode); never below two, never unlimited.
+  # env: IMAGE_COMPRESSION_MEMORY_BUDGET_MB
+  compression_memory_budget_mb: 512
+  # Sum of in-flight upload bodies TMPDIR may hold, in bytes. 0 = default
+  # (32 GiB), never unlimited; size it from the TMPDIR volume.
+  max_staging_bytes: 34359738368
+  # Bytes a transcode may expand a .xz/.zst upload to before it is failed.
+  # 0 = 20 x max_upload_size, or 64 GiB with no upload cap; never unlimited.
+  # env: IMAGE_MAX_DECOMPRESSED_SIZE
+  max_decompressed_size: 0
+  # Minutes one compression job may run once it holds a slot. 0 = default
+  # (180), never unlimited. env: IMAGE_COMPRESSION_TIMEOUT_MINUTES
+  compression_timeout_minutes: 180
+
+# Tracked node files. These are QUOTAS (0 = unlimited); unlike the other quota
+# blocks they default to the values the feature shipped with, because unbounded
+# file history was never a chosen behaviour, only an unconfigurable one. The
+# per-VERSION size cap (512 KB) is deliberately absent here: it bounds a gRPC
+# frame rather than storage, and a frame over the limit takes the node offline.
+node_file:
+  # History kept per tracked file. env: NODE_FILE_MAX_VERSIONS_PER_PATH
+  max_versions_per_path: 20
+
+  # Files one node may track. env: NODE_FILE_MAX_PER_NODE
+  max_files_per_node: 50
+
+  # Stored-content budget for one node, in bytes (counted as stored ciphertext,
+  # about a third larger than the plaintext). env: NODE_FILE_MAX_BYTES_PER_NODE
+  max_bytes_per_node: 16777216
+
+  # The same budget across every node of an account. The per-node budget
+  # multiplies by the fleet — a thousand nodes at 16 MB is 16 GB from one tenant
+  # — so this is the ceiling that bounds it. 0 = unlimited.
+  # env: NODE_FILE_MAX_BYTES_PER_ACCOUNT
+  max_bytes_per_account: 0
+
+# Outbound email: the address-verification link, invitations and password
+# reset. Open registration needs it; everything else works with it disabled.
+#
+# A relay that authorizes by SENDER IP rather than credentials (the Google
+# Workspace SMTP relay is one) needs no smtp_username/password; leave them
+# empty for such a relay and set them for a submission host that authenticates.
+email:
+  # env: EMAIL_ENABLED
+  enabled: false
+
+  # Submission or relay host. Workspace relay: smtp-relay.gmail.com
+  # env: EMAIL_SMTP_HOST, EMAIL_SMTP_PORT
+  smtp_host: ""
+  smtp_port: 587
+
+  # Optional — leave empty for the IP-authorized Workspace relay. Only needed
+  # for a plain authenticated submission host.
+  # env: EMAIL_SMTP_USERNAME, EMAIL_SMTP_PASSWORD
+  smtp_username: ""
+  smtp_password: ""
+
+  # Must be a real mailbox or alias in the sending domain, or the relay rejects
+  # the message. env: EMAIL_FROM_ADDRESS, EMAIL_FROM_NAME
+  from_address: ""
+  from_name: "Orchestrator"
+
+  # Keep this on: the verification link is a bearer credential for the account
+  # and must not cross the network in the clear. Production config validation
+  # refuses an enabled mailer without it. env: EMAIL_SMTP_STARTTLS
+  smtp_starttls: true
+
+# Per-tenant quotas: what ONE tenant may take from a SHARED instance.
+# The counterpart to the `member` block, which bounds
+# what a tenant does to people OUTSIDE the platform.
+#
+# Unlike the storage quotas above, every value here defaults ARMED. A storage
+# ceiling bounds what a tenant costs its own operator, which is that operator's
+# call; a request rate and a resource count decide whether one account can
+# degrade everybody else's service, and "unlimited until someone notices" is not
+# a defensible default for that. 0 still means unlimited everywhere.
+quota:
+  # The AUTHENTICATED API, per ACCOUNT — not per user and not per IP, because
+  # the account is the tenancy unit: one tenant scripting from ten machines is
+  # still one tenant. Deliberately generous; a page load in this UI is tens of
+  # requests, and a limit a real operator can hit is a limit that gets switched
+  # off. This bounds a runaway loop, not a busy human.
+  # env: API_RATE_LIMIT_PER_ACCOUNT_RPS
+  api_requests_per_second: 20
+  # env: API_RATE_LIMIT_PER_ACCOUNT_BURST
+  api_burst: 100
+
+  # How many nodes one account may hold. Checked where a node ROW is created,
+  # which includes master-token adoption — a leaked master token lets any device
+  # holding it join, and this count is the only thing bounding how many.
+  # Deliberately NOT checked when restoring a deleted node: that returns a node
+  # already part of the fleet, and refusing it strands real hardware.
+  # env: NODE_MAX_PER_ACCOUNT
+  max_nodes_per_account: 500
+
+  # How long a hardware serial may stay bound to a node nobody has ever
+  # admitted — a WebUSB/SSH placeholder awaiting its first connect, or a
+  # master-token adopt still pending approval — with no sign of the device.
+  # Past it the hourly sweep releases the FINGERPRINT (the row stays), so the
+  # account that actually holds the hardware can bind the serial. An admitted
+  # node is never touched. 0 disables. env: NODE_SERIAL_LEASE_DAYS
+  serial_lease_days: 30
+
+  # Seats. Checked when an invite is SENT and again when it is ACCEPTED, because
+  # an invite issued under the cap can be accepted after it is reached.
+  # env: MEMBER_MAX_PER_ACCOUNT
+  max_members_per_account: 100
+
+  # Secrets. Node ATTRIBUTES are secrets (attr:<nodeID>:<key>), so a large fleet
+  # spends this budget without anyone opening the Secrets page — which is why
+  # the default is high rather than round. Gates only NEW secrets: an account at
+  # its ceiling must still be able to rotate a leaked credential.
+  # env: SECRET_MAX_PER_ACCOUNT
+  max_secrets_per_account: 5000
+
+# Retention (days). Command history defaults to 0 = keep forever; the cost:
+# node_commands payload/result/details are encrypted at rest and re-wrapped on
+# every SECRETS_ENCRYPTION_KEY rotation, so unbounded growth slows each
+# rotation. The audit trail defaults to 365 days (0 keeps it forever; a
+# positive value is held between 7 and 3650). Environment overrides:
+# NODE_COMMAND_RETENTION_DAYS / AUDIT_EVENT_RETENTION_DAYS.
+retention:
+  node_command_days: 0
+  audit_event_days: 365
+
+# Device entitlement (docs/ENTITLEMENT.md). With no file the install admits up
+# to 25 devices; a signed file raises that. Every term — customer, cap, dates,
+# grace — is a signed field of the file, not a setting here. A file applied
+# through the API (PUT /api/v1/server/entitlement) lives in the database; this
+# block is the air-gap and bootstrap path, and the newest valid file wins. A
+# value that does not verify is logged at boot and ignored. Environment:
+# ENTITLEMENT (or ENTITLEMENT_FILE, a path) and ENTITLEMENT_SUBSCRIPTION_URL.
+entitlement:
+  document: ""
+  subscription_url: ""
+  # The per-account device limit: how many admitted devices each account may
+  # hold, in addition to the install-wide cap; 0 = none. An account's own
+  # override (accounts.device_limit, optionally until accounts.device_limit_until)
+  # replaces it while in force. The contact is where an account at its limit
+  # is told to write. env: ACCOUNT_DEVICE_LIMIT, ACCOUNT_DEVICE_LIMIT_CONTACT
+  account_device_limit: 0
+  account_device_limit_contact: ""

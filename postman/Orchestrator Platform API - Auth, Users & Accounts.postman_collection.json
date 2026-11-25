@@ -1,0 +1,2243 @@
+{
+  "info": {
+    "_postman_id": "orchestrator-api-auth-users-accounts",
+    "name": "Orchestrator Platform API - Auth, Users & Accounts",
+    "description": "API collection for Orchestrator Platform: Authentication, Users, and Accounts endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Check if the API is running"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data) {",
+                  "        pm.environment.set('access_token', response.data.access_token);",
+                  "        pm.environment.set('refresh_token', response.data.refresh_token);",
+                  "        pm.environment.set('user_id', response.data.user.id);",
+                  "        pm.environment.set('account_id', response.data.user.account_id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"John Doe\",\n  \"invite_code\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "Register a new user with email and password. With open registration the answer is 202 with verification_pending: true and no tokens (the same for an address that already has an account); the account is usable after its address is confirmed. Optional terms_accepted: true states that the person agreed to the operator's terms of use; it is stored with a timestamp and an audit event. Omit it on an install without terms."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"John Doe\",\n  \"invite_code\": \"\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/signup",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "signup"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"user registered successfully\",\n  \"data\": {\n    \"user\": {\n      \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n      \"account_id\": \"123e4567-e89b-12d3-a456-426614174001\",\n      \"name\": \"John Doe\",\n      \"email\": \"user@example.com\",\n      \"created_at\": \"2024-01-01T00:00:00Z\",\n      \"updated_at\": \"2024-01-01T00:00:00Z\"\n    },\n    \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"refresh_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n    \"expires_in\": 900,\n    \"token_type\": \"Bearer\"\n  },\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Register User (Minimal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data) {",
+                  "        pm.environment.set('access_token', response.data.access_token);",
+                  "        pm.environment.set('refresh_token', response.data.refresh_token);",
+                  "        pm.environment.set('user_id', response.data.user.id);",
+                  "        pm.environment.set('account_id', response.data.user.account_id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"minimal@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
+            },
+            "description": "Register a new user with minimal required fields (name will be 'User', account will be 'My Account')"
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data) {",
+                  "        pm.environment.set('access_token', response.data.access_token);",
+                  "        pm.environment.set('refresh_token', response.data.refresh_token);",
+                  "        pm.environment.set('user_id', response.data.user.id);",
+                  "        pm.environment.set('account_id', response.data.user.account_id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login with email and password"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data) {",
+                  "        pm.environment.set('access_token', response.data.access_token);",
+                  "        pm.environment.set('refresh_token', response.data.refresh_token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "Refresh access token using refresh token"
+          },
+          "response": []
+        },
+        {
+          "name": "OIDC Link Existing Account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"link_code\": \"{{oidc_link_code}}\",\n  \"password\": \"YourPassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/oidc/link-existing",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "oidc",
+                "link-existing"
+              ]
+            },
+            "description": "Resolves the \"an account with this email already exists\" case of Google/OIDC login. The IdP round-trip has already proven the mailbox; the backend holds that verified identity behind the one-time `link_code` it redirected with (/oidc-callback?link_code=...), and this call proves control of the local account with its password. On success the identity is linked, the account's email_verified_at is stamped (so later Google logins are silent) and a normal login result is returned: 200 with a token pair, or 202 with an account-selection challenge for multi-account users.\n\nThe code is SINGLE-USE and expires after 5 minutes — a wrong password burns it and the user must restart the Google flow. Every failure returns the same 401 (\"invalid or expired link code\") so the endpoint cannot be used to probe which emails have accounts. Rate-limited per IP like /auth/login (0.5 req/s, burst 10). Public: no Authorization header."
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Requests a password reset link. Public and deliberately uniform: an unknown, throttled or OIDC-only address returns the same 200 as a successful send, so the endpoint cannot be used to discover registered users. 503 when the deployment has no mail transport."
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"prt_replace_with_token_from_email\",\n  \"password\": \"a-new-password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Consumes the one-time reset token from the email link and installs the new password. Invalidates refresh tokens issued before the reset (every other session is signed out) and marks the address verified. 401 for unknown/expired/already-used tokens alike."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Two-Factor Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"two_factor_token\": \"<from the two_factor_required login response>\",\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/2fa",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "2fa"
+              ]
+            },
+            "description": "Exchanges the ticket from a `two_factor_required` login for a session. Accepts a TOTP code or a single-use recovery code, so only for challenges whose `two_factor_methods` include `totp`; a passkey-only challenge (a passkey holder in an account that requires two factors) is completed with the ordinary passkey login instead, and this route refuses it. Answers like /auth/login: 200 with tokens, or 202 with the account-selection challenge."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Revokes the refresh token and every successor rotated out of it. Always 200 — an already-invalid token is, from the caller side, already logged out."
+          },
+          "response": []
+        },
+        {
+          "name": "Begin Passkey Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/passkey/begin",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "passkey",
+                "begin"
+              ]
+            },
+            "description": "Returns WebAuthn request options plus a single-use ticket. No user is named — the authenticator resolves which account to offer, which is what makes this a full sign-in rather than a second factor. The remaining steps need a real browser; this entry documents the shape."
+          },
+          "response": []
+        },
+        {
+          "name": "List My Sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "sessions"
+              ]
+            },
+            "description": "Every live login for the signed-in user — one entry per session however many times its token has rotated, newest activity first. The requesting session is flagged `current`."
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke One Session",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/sessions/{{session_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "sessions",
+                "{{session_id}}"
+              ]
+            },
+            "description": "Signs one session out, including every token rotated out of it. Scoped to the caller: another user's session id answers 404, so the endpoint cannot be used to probe for session ids."
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke My Other Sessions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/sessions/revoke-others",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "sessions",
+                "revoke-others"
+              ]
+            },
+            "description": "Signs the user out everywhere except the session making the request — the 'I lost a device' action. The caller stays signed in on purpose. It also ends the user's logins still in progress (a pending second factor or account selection) — those are never the caller's own session."
+          },
+          "response": []
+        },
+        {
+          "name": "OIDC Link Start",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Reauth-Ticket",
+                "value": "{{reauth_ticket}}",
+                "description": "Ticket from a /reauth confirmation"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/oidc/link",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "oidc",
+                "link"
+              ]
+            },
+            "description": "Arms 'link my Google account' for the signed-in user: stores a short-lived ticket bound to their id and sets the cookie the callback reads; the browser then navigates to /auth/oidc/start. REQUIRES a step-up confirmation — send X-Reauth-Ticket, otherwise 403 with code=reauth_required. The gate is here because the identity it attaches is a way to sign in that survives a password change, a passkey rotation, a TOTP enrolment and a full session revocation, and an OIDC login skips the TOTP gate by design. A user whose only credential is the IdP makes the proof at /auth/oidc/reauth."
+          },
+          "response": []
+        },
+        {
+          "name": "OIDC Unlink Identity",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/oidc/identities/{{external_identity_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "oidc",
+                "identities",
+                "{{external_identity_id}}"
+              ]
+            },
+            "description": "Detaches a federated sign-in from the current account. Get the id from 'List My External Identities'. Refused with 409 when it would remove the last way in: the remaining set counts password, passkeys and other live identities, and deliberately NOT TOTP, which is a second factor and cannot start a session. Deliberately NOT behind a step-up (unlike Link), because gating removal would let an attacker's identity survive precisely when its victim cannot pass one. Soft delete: an operator can restore it, the user cannot."
+          },
+          "response": []
+        },
+        {
+          "name": "Step-Up: Begin IdP Re-authentication",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/oidc/reauth",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "oidc",
+                "reauth"
+              ]
+            },
+            "description": "Starts proof-of-presence for a user whose only credential is their IdP account. Sets a short-lived httpOnly cookie; the browser then navigates to /auth/oidc/start, which asks the provider to re-authenticate the person rather than answer from an existing session there. Browser flow: this request only arms it."
+          },
+          "response": []
+        },
+        {
+          "name": "Step-Up: Finish IdP Re-authentication",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{oidc_reauth_code}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/oidc/reauth/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "oidc",
+                "reauth",
+                "complete"
+              ]
+            },
+            "description": "Exchanges the one-time code from /account?oidc_reauth=<code> for a confirmation ticket. The ticket never travels in a URL, and the code is redeemable only by the user who started the round trip. Send the ticket back in X-Reauth-Ticket."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List Account Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            },
+            "description": "List all users belonging to the authenticated user's account"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/users",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"users retrieved successfully\",\n  \"data\": {\n    \"users\": [\n      {\n        \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n        \"account_id\": \"123e4567-e89b-12d3-a456-426614174001\",\n        \"name\": \"John Doe\",\n        \"email\": \"user@example.com\",\n        \"created_at\": \"2024-01-01T00:00:00Z\",\n        \"updated_at\": \"2024-01-01T00:00:00Z\"\n      }\n    ],\n    \"count\": 1\n  },\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "Get current user profile"
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/users/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "me"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"user retrieved successfully\",\n  \"data\": {\n    \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"account_id\": \"123e4567-e89b-12d3-a456-426614174001\",\n    \"name\": \"John Doe\",\n    \"email\": \"user@example.com\",\n    \"created_at\": \"2024-01-01T00:00:00Z\",\n    \"updated_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Current User",
+          "request": {
+            "description": "Update the current user's profile. PARTIAL update: an omitted field is left unchanged. REQUIRES a step-up confirmation — run a Re-auth request first, then send X-Reauth-Ticket (otherwise 403 with code=reauth_required). The gate is here because the body carries the email, the email is the sign-in identifier, and password reset resolves by the stored address and revokes every session when it completes: repointing it takes the account and evicts its owner.\n\nA supplied name must not be blank (400).",
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Reauth-Ticket",
+                "value": "{{reauth_ticket}}",
+                "description": "Ticket from a /reauth confirmation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"updated@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated Name\",\n  \"email\": \"updated@example.com\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/users/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "me"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"user updated successfully\",\n  \"data\": {\n    \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"account_id\": \"123e4567-e89b-12d3-a456-426614174001\",\n    \"name\": \"Updated Name\",\n    \"email\": \"updated@example.com\",\n    \"created_at\": \"2024-01-01T00:00:00Z\",\n    \"updated_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Reauth-Ticket",
+                "value": "{{reauth_ticket}}",
+                "description": "Ticket from a /reauth confirmation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "password"
+              ]
+            },
+            "description": "Update user password REQUIRES a step-up confirmation: run a Re-auth request first, then send X-Reauth-Ticket (otherwise 403 with code=reauth_required)."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"password\": \"newpassword123\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/users/me/password",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "me",
+                    "password"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"password updated successfully\",\n  \"data\": {\n    \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"account_id\": \"123e4567-e89b-12d3-a456-426614174001\",\n    \"name\": \"John Doe\",\n    \"email\": \"user@example.com\",\n    \"created_at\": \"2024-01-01T00:00:00Z\",\n    \"updated_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Accept Terms of Use",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/beta-acknowledgement",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "beta-acknowledgement"
+              ]
+            },
+            "description": "Records that the caller accepted the operator's notice or terms of use. No body: the accepted revision is decided server-side, so a client cannot claim to have seen a text it never got. Idempotent; every acceptance also appends a beta_notice.acknowledge audit event (the action string predates the terms wording). A sign-up records the same acceptance through terms_accepted on /auth/signup. The path and the response's beta_notice_acknowledged field keep their original names for existing clients."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/users/me/beta-acknowledgement",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "me",
+                    "beta-acknowledgement"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"acceptance recorded\",\n  \"data\": {\n    \"id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"name\": \"John Doe\",\n    \"email\": \"user@example.com\",\n    \"email_verified\": true,\n    \"beta_notice_acknowledged\": true,\n    \"created_at\": \"2024-01-01T00:00:00Z\",\n    \"updated_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Two-Factor Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/2fa",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "2fa"
+              ]
+            },
+            "description": "Reports whether the signed-in user has a confirmed second factor and how many recovery codes remain."
+          },
+          "response": []
+        },
+        {
+          "name": "Start Two-Factor Enrollment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Reauth-Ticket",
+                "value": "{{reauth_ticket}}",
+                "description": "Ticket from a /reauth confirmation"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/2fa/enroll",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "2fa",
+                "enroll"
+              ]
+            },
+            "description": "Generates a TOTP secret plus a rendered QR (data: URI). Enables nothing — the factor stays inactive until confirmed, so abandoning this cannot lock the user out. REQUIRES a step-up confirmation: run a Re-auth request first, then send X-Reauth-Ticket (otherwise 403 with code=reauth_required)."
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm Two-Factor Enrollment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "X-Reauth-Ticket",
+                "value": "{{reauth_ticket}}",
+                "description": "Ticket from a /reauth confirmation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/2fa/confirm",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "2fa",
+                "confirm"
+              ]
+            },
+            "description": "Activates the factor and returns the single-use recovery codes EXACTLY ONCE (only digests are stored). REQUIRES a step-up confirmation: run a Re-auth request first, then send X-Reauth-Ticket (otherwise 403 with code=reauth_required)."
+          },
+          "response": []
+        },
+        {
+          "name": "Disable Two-Factor",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/2fa",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "2fa"
+              ]
+            },
+            "description": "Removes the factor. Requires a current code so a hijacked session cannot strip the protection it exists to survive."
+          },
+          "response": []
+        },
+        {
+          "name": "List Passkeys",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/passkeys",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "passkeys"
+              ]
+            },
+            "description": "The signed-in user's registered credentials. Public data only — a credential is a public key and a handle."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Passkey",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/passkeys/{{passkey_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "passkeys",
+                "{{passkey_id}}"
+              ]
+            },
+            "description": "Removes one credential. Refuses the last one on a passwordless account, which would leave no way to sign in.\n\nAn id that is not one of the caller's passkeys answers 404."
+          },
+          "response": []
+        },
+        {
+          "name": "Re-auth: Available Methods",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/reauth/methods",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "reauth",
+                "methods"
+              ]
+            },
+            "description": "Which credentials this user can confirm with. required=false means the user holds none and is therefore not asked to confirm at all."
+          },
+          "response": []
+        },
+        {
+          "name": "Re-auth: Confirm with Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/reauth/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "reauth",
+                "password"
+              ]
+            },
+            "description": "Returns {ticket, expires_in}. Send the ticket back in the X-Reauth-Ticket header on credential-changing calls. The test script stores it in the reauth_ticket variable. The ticket is bound to the session that earned it and honoured only while that session is live: a sign-out, \"sign out everywhere\" or a password change ends it, and a dead session answers 401.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"password123\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "if (d && d.ticket) { pm.environment.set('reauth_ticket', d.ticket); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Re-auth: Confirm with TOTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/reauth/totp",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "reauth",
+                "totp"
+              ]
+            },
+            "description": "A single-use recovery code works here too. Returns {ticket, expires_in}. Bound to the calling session exactly as the password confirmation is.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json().data;",
+                  "if (d && d.ticket) { pm.environment.set('reauth_ticket', d.ticket); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Re-auth: Begin Passkey Confirmation",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/reauth/passkey/begin",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "reauth",
+                "passkey",
+                "begin"
+              ]
+            },
+            "description": "Returns WebAuthn assertion options plus a ceremony ticket. Finish cannot be driven from Postman — it needs a real authenticator."
+          },
+          "response": []
+        },
+        {
+          "name": "Begin passkey registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/passkeys/register/begin",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "passkeys",
+                "register",
+                "begin"
+              ]
+            },
+            "description": "Returns the WebAuthn creation options to pass to navigator.credentials.create(), plus a single-use ticket to hand back on finish. The challenge itself is held server-side."
+          },
+          "response": []
+        },
+        {
+          "name": "Finish passkey registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/passkeys/register/finish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "passkeys",
+                "register",
+                "finish"
+              ]
+            },
+            "description": "Verifies the authenticator's attestation and stores the credential. The raw WebAuthn response is read from the request body alongside the ticket."
+          },
+          "response": []
+        },
+        {
+          "name": "Finish passkey confirmation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/reauth/passkey/finish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "reauth",
+                "passkey",
+                "finish"
+              ]
+            },
+            "description": "Verifies the authenticator's assertion and returns a short-lived confirmation ticket. The asserted credential must belong to the signed-in user."
+          },
+          "response": []
+        },
+        {
+          "name": "Resend the verification email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/resend-verification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "resend-verification"
+              ]
+            },
+            "description": "Mails a new verification link to the signed-in user's address, revoking any previous link. Throttled per user."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "Get Account by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts/{{account_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{account_id}}"
+              ]
+            },
+            "description": "Get account by ID (user can only access their own account)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Account",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Account Name\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts/{{account_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{account_id}}"
+              ]
+            },
+            "description": "Rename the account (team/company). Requires the account-wide super_admin role: `account.update` is not in the tunable whitelist, so it cannot be delegated to admin/manager/viewer. Only the caller's own account may be updated (any other id returns 403). `name` is trimmed and must be 2..100 characters (counted in runes).\n\nidentify_duration_sec outside 10..3600 answers 400 (code invalid_identify_duration)."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated Account Name\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/api/v1/accounts/{{account_id}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "accounts",
+                    "{{account_id}}"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"account updated successfully\",\n  \"data\": {\n    \"id\": \"123e4567-e89b-12d3-a456-426614174001\",\n    \"name\": \"Updated Account Name\",\n    \"created_at\": \"2024-01-01T00:00:00Z\",\n    \"updated_at\": \"2024-01-01T00:00:00Z\"\n  },\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Account (disabled — returns 403)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts/{{account_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "{{account_id}}"
+              ]
+            },
+            "description": "DISABLED: always returns 403. Account erasure is performed by the instance operator; tenants file a request via POST /api/v1/account/deletion-request."
+          },
+          "response": []
+        },
+        {
+          "name": "List Audit Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/audit-events?per_page=50",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "audit-events"
+              ],
+              "query": [
+                {
+                  "key": "per_page",
+                  "value": "50",
+                  "description": "Page size (default 50, max 200)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "1-based page number",
+                  "disabled": true
+                },
+                {
+                  "key": "action",
+                  "value": "secret.values_read",
+                  "description": "Exact action string to filter by",
+                  "disabled": true
+                },
+                {
+                  "key": "actor",
+                  "value": "{{user_id}}",
+                  "description": "Actor user id to filter by",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "The account's audit trail, newest first. Detail carries names, kinds and flags only — never credential material. Nothing in the API can delete a row; the retention sweep removes events older than the account's audit retention, which defaults to the install's AUDIT_EVENT_RETENTION_DAYS (365 days unless the operator sets it; 0 keeps events forever). Requires audit.read, which no role below super_admin holds."
+          }
+        },
+        {
+          "name": "Export Account Data",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/account/export",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account",
+                "export"
+              ]
+            },
+            "description": "Download everything the account owns as one JSON document, so a tenant can leave with their configuration. Note the path is singular /account and takes no id: the export is always of the CALLER's account, read from the token, so tenancy is a property rather than a check.\n\nCarries configuration and metadata ONLY — no secret values, no SSH private keys, no access-entry passwords, no adoption or master tokens, no node unique_token. `has_*` booleans report that a credential exists so a rebuild knows to re-enter it.\n\nOS image FILES are not included; the document lists them with checksums and each is fetched from GET /api/v1/images/{id}/download.\n\nA section that cannot be read is NAMED in `omitted` rather than silently empty, and the export still succeeds. Requires account.export (super_admin)."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/account/export",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "account",
+                    "export"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"format_version\": 1,\n  \"generated_at\": \"2026-08-01T20:00:00Z\",\n  \"notice\": \"This export carries configuration and metadata only. It contains NO credential material...\",\n  \"account\": {\n    \"id\": \"123e4567-e89b-12d3-a456-426614174001\",\n    \"name\": \"Acme\",\n    \"require_two_factor\": false,\n    \"created_at\": \"2026-01-01T00:00:00Z\"\n  },\n  \"members\": [\n    {\n      \"user_id\": \"123e4567-e89b-12d3-a456-426614174000\",\n      \"email\": \"owner@acme.test\",\n      \"status\": \"active\",\n      \"bindings\": [\n        {\n          \"role\": \"super_admin\"\n        }\n      ]\n    }\n  ],\n  \"nodes\": [\n    {\n      \"id\": \"123e4567-e89b-12d3-a456-426614174020\",\n      \"name\": \"node-1\",\n      \"serial_number\": \"10000000abcd0001\",\n      \"status\": \"online\"\n    }\n  ],\n  \"secrets\": [\n    {\n      \"id\": \"123e4567-e89b-12d3-a456-426614174030\",\n      \"name\": \"api-token\",\n      \"kind\": \"credential\",\n      \"sensitive\": true,\n      \"has_value\": true\n    }\n  ],\n  \"images\": [\n    {\n      \"id\": \"123e4567-e89b-12d3-a456-426614174010\",\n      \"title\": \"Ubuntu 24.04\",\n      \"checksum\": \"3b7c9d1e\",\n      \"download_path\": \"/api/v1/images/123e4567-e89b-12d3-a456-426614174010/download\"\n    }\n  ],\n  \"omitted\": []\n}"
+            }
+          ]
+        },
+        {
+          "name": "Request Account Deletion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_name\": \"Acme Ltd\",\n  \"reason\": \"moving in-house\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/account/deletion-request",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account",
+                "deletion-request"
+              ]
+            },
+            "description": "File a standing request to have this account and all its data erased.\n\nIt does NOT delete anything. Erasure is performed by the INSTANCE OPERATOR with dedicated tooling; this endpoint only files the request. A second implementation in the backend is how a half-purged account happens, so the tenant side files a request and the operator executes it.\n\n`account_name` must match exactly (case and surrounding space are forgiven). That echo is the CONTROL, not the dialog.\n\n409 if a request is already open. The customer's free-text `reason` is stored on the row and deliberately NOT copied into the audit trail, which is on no encryption-rewrap list. Requires account.delete (super_admin)."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/account/deletion-request",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "account",
+                    "deletion-request"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"deletion request filed\",\n  \"data\": {\n    \"id\": \"123e4567-e89b-12d3-a456-426614174040\",\n    \"account_id\": \"123e4567-e89b-12d3-a456-426614174001\",\n    \"requested_by\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"requested_at\": 1704067200,\n    \"reason\": \"moving in-house\",\n    \"notice\": \"Your account is NOT deleted yet. This request has been recorded and the instance operator will erase the account and all its data. Nothing changes until then — you can still sign in, and you can still export your data from GET /api/v1/account/export. Cancel with DELETE on this endpoint.\"\n  },\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Account Deletion Request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/account/deletion-request",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account",
+                "deletion-request"
+              ]
+            },
+            "description": "The open request, or 404 if none. There is deliberately no `status` field: a request either exists or it does not, and the API cannot report 'completed' because by then there is no account left to ask."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/account/deletion-request",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "account",
+                    "deletion-request"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"deletion request\",\n  \"data\": {\n    \"id\": \"123e4567-e89b-12d3-a456-426614174040\",\n    \"account_id\": \"123e4567-e89b-12d3-a456-426614174001\",\n    \"requested_by\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"requested_at\": 1704067200,\n    \"reason\": \"moving in-house\",\n    \"notice\": \"Your account is NOT deleted yet. This request has been recorded and the instance operator will erase the account and all its data. Nothing changes until then — you can still sign in, and you can still export your data from GET /api/v1/account/export. Cancel with DELETE on this endpoint.\"\n  },\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Cancel Account Deletion Request",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/account/deletion-request",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "account",
+                "deletion-request"
+              ]
+            },
+            "description": "Withdraws the open request. 404 when none is open — rather than a cheerful 200, which would let a customer believe they withdrew a request that had already been consumed."
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/v1/account/deletion-request",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "account",
+                    "deletion-request"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"deletion request cancelled\",\n  \"data\": {\n    \"status\": \"cancelled\"\n  },\n  \"timestamp\": \"2024-01-01T00:00:00Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Members",
+      "item": [
+        {
+          "name": "Resend Invite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/members/invites/{{invite_id}}/resend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "members",
+                "invites",
+                "{{invite_id}}",
+                "resend"
+              ]
+            },
+            "description": "Mints a NEW token for a pending invite (same email, role and OU scope), revokes the previous one and emails the link when delivery is configured. The stored token is only a digest, so the original link cannot be re-sent. Response carries the new one-shot token plus `delivered`."
+          },
+          "response": []
+        }
+      ],
+      "description": "Account membership, role bindings and invites (super_admin only)."
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "List the current user's accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "accounts"
+              ]
+            },
+            "description": "Returns the accounts the current user holds an active membership in (feeds the org switcher)"
+          },
+          "response": []
+        },
+        {
+          "name": "Identity-provider callback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/oidc/callback?state=&code=",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "oidc",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "state",
+                  "value": "",
+                  "description": "CSRF state, must match the cookie",
+                  "disabled": false
+                },
+                {
+                  "key": "code",
+                  "value": "",
+                  "description": "Authorization code from the IdP",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "The IdP redirects here. Verifies state and nonce against the cookies /auth/oidc/start set, resolves the identity to a session, and redirects to the SPA carrying a one-time handoff code — never the tokens themselves, which the SPA trades for at /auth/oidc/complete. Failures redirect with an error parameter rather than answering with a status, because the caller is a browser mid-redirect."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete federated login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/oidc/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "oidc",
+                "complete"
+              ]
+            },
+            "description": "Trades the one-time handoff code from the callback redirect for the login result. Answers 200 with a token pair when the identity resolves to a single account, or 202 with an account-selection challenge when it resolves to several — the same discriminated shape a password login uses. The code is single-use and short-lived.",
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "OIDC availability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/oidc/config",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "oidc",
+                "config"
+              ]
+            },
+            "description": "Reports that federated login is configured on this instance: the provider's display name (empty when none is configured and the issuer is not Google), its issuer URL, whether an unknown identity can create an account (sign_up: open — open registration, or OIDC_AUTO_PROVISION with no invite code; invite_code; or closed), and a legacy English button label. The route exists only when a provider was discovered at startup, so a 404 means OIDC is off."
+          },
+          "response": []
+        },
+        {
+          "name": "Sign-in options",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/server/sign-in-options",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "server",
+                "sign-in-options"
+              ]
+            },
+            "description": "Tokenless. Reports whether this install can send mail (password reset, confirmation and invitation mails) and how a sign-up is admitted right now (first_owner, open, invite_code or closed; omitted when unknown; registration_reason email_unavailable when open registration is closed for want of mail). The sign-in and sign-up pages word themselves from it."
+          },
+          "response": []
+        },
+        {
+          "name": "List my external identities",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/oidc/identities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "oidc",
+                "identities"
+              ]
+            },
+            "description": "Live links only — an identity that was unlinked is not listed, and is not counted as a credential."
+          },
+          "response": []
+        },
+        {
+          "name": "Begin federated login",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/oidc/start?invite=",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "oidc",
+                "start"
+              ],
+              "query": [
+                {
+                  "key": "invite",
+                  "value": "",
+                  "description": "Invite code, carried across the IdP round-trip; required to provision a NEW account when the instance is invite-gated",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Redirects the browser to the identity provider. Not callable by an API client: the state and nonce live in httpOnly cookies that only this redirect sets, and the callback rejects a response without them."
+          },
+          "response": []
+        },
+        {
+          "name": "Finish passkey login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/passkey/finish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "passkey",
+                "finish"
+              ]
+            },
+            "description": "Verifies the authenticator's assertion and answers exactly like /auth/login: 200 with tokens, or 202 with the account-selection challenge for a multi-account user."
+          },
+          "response": []
+        },
+        {
+          "name": "Select an account after login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/select-account",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "select-account"
+              ]
+            },
+            "description": "Exchanges the pre-auth token returned by /auth/login for a token pair pinned to the chosen account. The token is single-use, expires five minutes after the login, and is refused after a password change made since it was issued (401 either way).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": \"string\",\n  \"pre_token\": \"string\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Switch to another account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/switch-account",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "switch-account"
+              ]
+            },
+            "description": "Mints a token pair pinned to another account the current user is an active member of. The pair stays inside the caller's session family, so signing out of this device ends both accounts' tokens. 401 when the access token's session was signed out or predates a password change (sign in again), or when the caller is not an active member of the target account.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account_id\": \"string\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Confirm an email address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/verify-email",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ]
+            },
+            "description": "Consumes a one-time verification token from an email link and marks the address as verified. Idempotent for an already-verified user; the token itself is single-use.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"string\"\n}"
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    }
+  ]
+}

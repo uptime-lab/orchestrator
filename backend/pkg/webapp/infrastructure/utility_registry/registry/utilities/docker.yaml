@@ -1,0 +1,42 @@
+id: docker
+name: Docker
+description: >-
+  Installs the Docker container runtime (distro docker.io package) and manages
+  its daemon configuration. Container log rotation is capped by default to
+  protect SD cards. Docker manages its own firewall rules, so published
+  container ports bypass the host firewall. Membership in the docker group
+  grants root-level access on the device.
+class: reconciled
+params:
+  - name: log_max_size
+    label: Container log max size
+    description: Maximum log size per container before rotation (daemon.json max-size).
+    type: string
+    default: "10m"
+    placeholder: "10m"
+  - name: log_max_file
+    label: Rotated log files kept
+    description: How many rotated log files to keep per container.
+    type: int
+    default: 3
+    min: 1
+    max: 50
+  - name: data_root
+    label: Data root
+    description: >-
+      Optional docker data directory (daemon.json data-root), e.g. a path on
+      NVMe. Empty keeps the default /var/lib/docker. Must be an absolute path.
+    type: string
+    required: false
+  - name: registry_mirrors
+    label: Registry mirrors
+    description: >-
+      Optional comma-separated registry mirror URLs. Only https:// URLs are
+      accepted.
+    type: string
+    required: false
+  - name: live_restore
+    label: Live restore
+    description: Keep containers running while the Docker daemon restarts (daemon.json live-restore).
+    type: bool
+    default: true

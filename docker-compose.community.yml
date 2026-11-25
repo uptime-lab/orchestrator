@@ -1,0 +1,586 @@
+# Uptime Orchestrator — self-hosted stack from the published images.
+#
+# Four services: the backend (HTTP API + agent gRPC), the frontend (the SPA
+# behind nginx), PostgreSQL, and the eeprom-signer that bakes per-device
+# bootloader images for network boot. The four publish on the loopback
+# interface only, so nothing is reachable from outside the host until a
+# reverse proxy forwards to them. That proxy is yours by default — TLS, the
+# public hostname and the agent port's edge, as docs/INSTALL.md describes —
+# or one of the two bundled ones at the end of this file, which start only
+# when COMPOSE_PROFILES names them (`proxy-lan`: plain HTTP for a trusted
+# local network; `proxy-tls`: HTTPS with a Let's Encrypt certificate). The
+# installer (tools/install/install.sh) sets that up for you.
+#
+# Settings come from a `.env` file beside this file (`DOMAIN`,
+# `PLATFORM_VERSION`, `DATA_PATH`, and the optional overrides named below);
+# credentials come from FILES in `${SECRETS_DIR}` (default ./secrets),
+# mounted as Docker secrets — never from the environment, which
+# `docker inspect` and /proc expose. The full
+# variable reference is docs/CONFIGURATION.md.
+#
+# Memory: the backend's compression bounds below are sized for a 4 GB host
+# (one xz job at a time inside a 1 GiB container). docs/INSTALL.md explains
+# the arithmetic before you raise them.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+# Every service drops all capabilities and refuses privilege escalation; a
+# service that needs a capability adds it back next to the reason.
+x-hardening: &default-hardening
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+# Every file below must EXIST before `docker compose up`, or Compose refuses
+# to start the whole project. `/app/server --init-secrets DIR`, run from the
+# backend image as uid 1000 (docs/INSTALL.md, "Create the credentials"),
+# writes the whole set in one go: random values for the five that have to
+# agree with nothing outside this host, and EMPTY files for the optional ones
+# (the old encryption key, the invite code, the OIDC client secret, the S3
+# pair, the SMTP password, the device entitlement) — the backend treats an
+# empty credential file as "not set". It never overwrites, so a second run
+# against a booted install is refused; a set created by an older image that
+# lacks a file is completed by hand with an empty file of that name.
+secrets:
+  db_password:
+    file: ${SECRETS_DIR:-./secrets}/db_password
+  jwt_secret:
+    file: ${SECRETS_DIR:-./secrets}/jwt_secret
+  secrets_encryption_key:
+    file: ${SECRETS_DIR:-./secrets}/secrets_encryption_key
+  secrets_encryption_key_old:
+    file: ${SECRETS_DIR:-./secrets}/secrets_encryption_key_old
+  cdn_signing_key:
+    file: ${SECRETS_DIR:-./secrets}/cdn_signing_key
+  invite_code:
+    file: ${SECRETS_DIR:-./secrets}/invite_code
+  eeprom_signer_token:
+    file: ${SECRETS_DIR:-./secrets}/eeprom_signer_token
+  oidc_client_secret:
+    file: ${SECRETS_DIR:-./secrets}/oidc_client_secret
+  s3_access_key:
+    file: ${SECRETS_DIR:-./secrets}/s3_access_key
+  s3_secret_key:
+    file: ${SECRETS_DIR:-./secrets}/s3_secret_key
+  smtp_password:
+    file: ${SECRETS_DIR:-./secrets}/smtp_password
+  # The device entitlement (docs/ENTITLEMENT.md). Not a credential, but read
+  # through the same <VAR>_FILE discipline. Empty means the free device cap;
+  # pasting a file in the UI is the other way to apply one.
+  entitlement:
+    file: ${SECRETS_DIR:-./secrets}/entitlement
+
+services:
+  postgres:
+    <<: *default-hardening
+    # The postgres image switches user and fixes ownership on start.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
+    pids_limit: 256
+    image: postgres:18-alpine
+    container_name: orchestrator-postgres
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-orchestrator}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    secrets:
+      - db_password
+    volumes:
+      # postgres:18 keeps its data under /var/lib/postgresql/<major>/, so the
+      # volume mounts the parent; mounting the older .../data path puts the
+      # cluster outside the volume and loses it on the next recreate.
+      - orchestrator-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-orchestrator}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - orchestrator-network
+    deploy:
+      resources:
+        limits:
+          memory: ${POSTGRES_MEMORY_LIMIT:-1G}
+          # The same number as `pids_limit` above, said twice on purpose: some
+          # Compose releases refuse a service that sets `pids_limit` beside a
+          # `deploy.resources.limits` block without `pids` in it.
+          pids: 256
+
+  backend:
+    <<: *default-hardening
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    pids_limit: 512
+    image: ghcr.io/uptime-lab/orchestrator/backend:${PLATFORM_VERSION:?set PLATFORM_VERSION to the platform release you are installing}
+    # Run as uid 1000 — the signer's uid — rather than the image's built-in
+    # user, so ONE owner covers every file both containers read: the 0400
+    # credential files `--init-secrets` writes, the storage volume and the
+    # net_install tree. Postgres reads its password file as root.
+    user: "1000:1000"
+    container_name: orchestrator-backend
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      # APP_ENV is deliberately NOT overridden: the image sets `production`
+      # (and unset would mean the same), where the server refuses to boot on a
+      # placeholder secret or a plaintext agent channel
+      # (docs/CONFIGURATION.md, "Production checks").
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+      # What devices and install scripts are told to call. Both must be the
+      # PUBLIC names your proxy serves, with the port where it is not the
+      # scheme's default.
+      # PUBLIC_SCHEME is `https` unless the install is the plaintext-LAN
+      # shape, where `.env` says PUBLIC_SCHEME=http and PUBLIC_WS_SCHEME=ws.
+      - SERVER_ADVERTISEMENT_URL=${PUBLIC_SCHEME:-https}://${DOMAIN:?set DOMAIN in .env}
+      - GRPC_ADVERTISEMENT_URL=${DOMAIN}:${AGENT_PUBLIC_PORT:-50051}
+      - APP_BASE_URL=${PUBLIC_SCHEME:-https}://${DOMAIN}
+      - CORS_ALLOWED_ORIGINS=${PUBLIC_SCHEME:-https}://${DOMAIN}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+      - DB_NAME=${DB_NAME:-orchestrator}
+      - DB_SSLMODE=disable
+      - JWT_SECRET_KEY_FILE=/run/secrets/jwt_secret
+      - JWT_ACCESS_TOKEN_TTL=${JWT_ACCESS_TOKEN_TTL:-15m}
+      - JWT_REFRESH_TOKEN_TTL=${JWT_REFRESH_TOKEN_TTL:-168h}
+      - SECRETS_ENCRYPTION_KEY_FILE=/run/secrets/secrets_encryption_key
+      - SECRETS_ENCRYPTION_KEY_OLD_FILE=/run/secrets/secrets_encryption_key_old
+      - SECRETS_ENCRYPTION_REWRAP=${SECRETS_ENCRYPTION_REWRAP:-}
+      - CDN_SIGNING_KEY_FILE=/run/secrets/cdn_signing_key
+      # Agent channel. The edge (docs/INSTALL.md) terminates TLS on the agent
+      # port and forwards plaintext gRPC to this container over the compose
+      # network; that is what TLS_TERMINATED_EXTERNALLY declares. Set
+      # AGENT_GRPC_PROXY_PROTOCOL=require only when the proxy sends a PROXY
+      # protocol header on every connection — with `off` (the default here)
+      # the per-source pre-auth bound is inert and only the global one holds.
+      # AGENT_GRPC_PLAINTEXT_OK=true (with TLS_TERMINATED_EXTERNALLY=false)
+      # declares a plaintext agent channel on a trusted LAN; that shape also
+      # needs PUBLIC_SCHEME=http, PUBLIC_WS_SCHEME=ws and something that
+      # forwards the device ports — the `proxy-lan` profile below does
+      # (docs/INSTALL.md, "The agent port").
+      - GRPC_HOST=0.0.0.0
+      - GRPC_PORT=50051
+      - GRPC_TLS_TERMINATED_EXTERNALLY=${GRPC_TLS_TERMINATED_EXTERNALLY:-true}
+      - AGENT_GRPC_PLAINTEXT_OK=${AGENT_GRPC_PLAINTEXT_OK:-false}
+      - AGENT_GRPC_PROXY_PROTOCOL=${AGENT_GRPC_PROXY_PROTOCOL:-off}
+      # Sign-up: the empty install admits its first owner without a code and
+      # is CLOSED from then on (the invite_code file `--init-secrets` writes
+      # is empty). To host more organisations on the same server, put a code
+      # into that file and raise the ceiling; colleagues join by invitation.
+      # SERVER_OPEN_REGISTRATION=true admits any new organisation with no
+      # code at all, still up to the ceiling.
+      - SERVER_INVITE_CODE_FILE=/run/secrets/invite_code
+      - SERVER_MAX_ACCOUNTS=${SERVER_MAX_ACCOUNTS:-1}
+      - SERVER_OPEN_REGISTRATION=${SERVER_OPEN_REGISTRATION:-false}
+      - TERMINAL_ENABLED=${TERMINAL_ENABLED:-true}
+      # Storage: local disk under the storage volume. Uploads spill to TMPDIR
+      # on that same volume, never to the container's RAM-backed /tmp.
+      - STORAGE_LOCAL_BASE_DIR=/app/storage
+      - TMPDIR=/app/storage/tmp
+      - STORAGE_TMP_SWEEP_HOURS=${STORAGE_TMP_SWEEP_HOURS:-6}
+      # Object storage is optional; setting S3_BUCKET and S3_ENDPOINT selects
+      # it (STORAGE_TYPE stays `auto`) and then the two key files must be
+      # non-empty.
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
+      - S3_REGION=${S3_REGION:-}
+      - S3_BUCKET=${S3_BUCKET:-}
+      - S3_USE_PATH_STYLE=${S3_USE_PATH_STYLE:-}
+      - S3_ACCESS_KEY_FILE=/run/secrets/s3_access_key
+      - S3_SECRET_KEY_FILE=/run/secrets/s3_secret_key
+      # Image pipeline, sized for the declared 4 GB host: one xz job at a
+      # time, bounded to 256 MiB per process, inside the 1 GiB limit below.
+      # The budget is the sum of xz limits the running jobs may hold; a
+      # transcode holds two (decoder + encoder), so 512 is exactly one
+      # transcode, and budget + 128 MiB for the Go process must fit
+      # BACKEND_MEMORY_LIMIT. On an 8 GB host: XZ 512, budget 1024, limit 2G.
+      # The boot log prints the arithmetic; a test pins these defaults.
+      - IMAGE_XZ_MEMLIMIT_MB=${IMAGE_XZ_MEMLIMIT_MB:-256}
+      - IMAGE_COMPRESSION_MEMORY_BUDGET_MB=${IMAGE_COMPRESSION_MEMORY_BUDGET_MB:-512}
+      - IMAGE_MAX_CONCURRENT_COMPRESSIONS=${IMAGE_MAX_CONCURRENT_COMPRESSIONS:-1}
+      # Only for the plaintext-LAN shape (docs/INSTALL.md, "The agent port"):
+      # an OS install is refused over an http:// image URL unless this says so.
+      - IMAGE_ALLOW_PLAINTEXT_URL=${IMAGE_ALLOW_PLAINTEXT_URL:-false}
+      - IMAGE_MAX_CONCURRENT_UPLOADS=${IMAGE_MAX_CONCURRENT_UPLOADS:-2}
+      - IMAGE_MAX_STAGING_BYTES=${IMAGE_MAX_STAGING_BYTES:-17179869184}
+      - IMAGE_COMPRESS_REPLACE_ORIGINAL=${IMAGE_COMPRESS_REPLACE_ORIGINAL:-true}
+      # A compression job is bounded in expansion (64 GiB) and run time; what
+      # it stores counts against IMAGE_MAX_BYTES_PER_ACCOUNT and
+      # IMAGE_MAX_BYTES_INSTANCE, which an install that opens signup sets.
+      - IMAGE_MAX_DECOMPRESSED_SIZE=${IMAGE_MAX_DECOMPRESSED_SIZE:-68719476736}
+      - IMAGE_COMPRESSION_TIMEOUT_MINUTES=${IMAGE_COMPRESSION_TIMEOUT_MINUTES:-180}
+      - IMAGE_MAX_BYTES_PER_ACCOUNT=${IMAGE_MAX_BYTES_PER_ACCOUNT:-0}
+      - IMAGE_MAX_BYTES_INSTANCE=${IMAGE_MAX_BYTES_INSTANCE:-0}
+      # Network boot and the SD bundle read from the net_install directory
+      # (docs/NETWORK-FIRST.md). FAIL_OPEN=true is what lets a brand-new
+      # device netboot into adoption before the server knows it; keep it
+      # false on an internet-facing install and adopt by install link or SD
+      # bundle instead.
+      - PROVISIONING_HTTP_BOOT_DIR=/app/net_install
+      - PROVISIONING_SD_PAYLOAD_DIR=/app/net_install/sd-payload
+      - PROVISIONING_HTTP_BOOT_FAIL_OPEN=${PROVISIONING_HTTP_BOOT_FAIL_OPEN:-false}
+      # Boot-loop failsafe OFF (0): the boot path identifies a device by its
+      # serial alone, and with the failsafe armed anyone who knows a serial
+      # can divert an offline node's next boot into recovery. Arm it (3 is
+      # usual) only when strangers cannot reach port 80 of this host; the
+      # price of 0 is that a node whose OS cannot boot is rescued by hand.
+      # docs/SECURITY-ACCEPTANCES.md; a test pins this default.
+      - PROVISIONING_BOOT_FAILSAFE_THRESHOLD=${PROVISIONING_BOOT_FAILSAFE_THRESHOLD:-0}
+      - PROVISIONING_BOOT_HOST=${PROVISIONING_BOOT_HOST:-${DOMAIN}}
+      # The GPL corresponding-source offer for the recovery image, served
+      # tokenless at /source/ (docs/INSTALL.md, "Network boot"). Set it to
+      # /app/source-offer — the read-only mount of data/source-offer below —
+      # once the archives named in the image's SOURCE-OFFER.txt are placed
+      # there. Unset, the route answers 404 with a notice, which is right for
+      # an install that hands the image to nobody but its own devices.
+      - SOURCE_OFFER_DIR=${SOURCE_OFFER_DIR:-}
+      - EEPROM_SIGNER_URL=http://eeprom-signer:9099
+      - EEPROM_SIGNER_TOKEN_FILE=/run/secrets/eeprom_signer_token
+      # Retention: device command history is swept after 90 days by default
+      # here; the audit trail after 365 days (0 keeps it forever).
+      - NODE_COMMAND_RETENTION_DAYS=${NODE_COMMAND_RETENTION_DAYS:-90}
+      - AUDIT_EVENT_RETENTION_DAYS=${AUDIT_EVENT_RETENTION_DAYS:-365}
+      - WORKFLOW_EXECUTION_RETENTION_DAYS=${WORKFLOW_EXECUTION_RETENTION_DAYS:-30}
+      # This release ships no admin console, the one reader of the instance
+      # anomalies the server records; `none` states that, so the start log
+      # does not warn about a component the install does not have.
+      - INSTANCE_MONITORING_READER=${INSTANCE_MONITORING_READER:-none}
+      # Mail and single sign-on are off until configured (docs/EMAIL.md,
+      # docs/GOOGLE-OAUTH-SETUP.md).
+      - EMAIL_ENABLED=${EMAIL_ENABLED:-false}
+      - EMAIL_SMTP_HOST=${EMAIL_SMTP_HOST:-}
+      - EMAIL_SMTP_PORT=${EMAIL_SMTP_PORT:-587}
+      - EMAIL_SMTP_STARTTLS=${EMAIL_SMTP_STARTTLS:-true}
+      - EMAIL_SMTP_USERNAME=${EMAIL_SMTP_USERNAME:-}
+      - EMAIL_SMTP_PASSWORD_FILE=/run/secrets/smtp_password
+      - EMAIL_FROM_ADDRESS=${EMAIL_FROM_ADDRESS:-}
+      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-Orchestrator}
+      - OIDC_ENABLED=${OIDC_ENABLED:-false}
+      - OIDC_ISSUER_URL=${OIDC_ISSUER_URL:-https://accounts.google.com}
+      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-}
+      - OIDC_CLIENT_SECRET_FILE=/run/secrets/oidc_client_secret
+      - OIDC_REDIRECT_URL=${OIDC_REDIRECT_URL:-}
+      - OIDC_PROVIDER_NAME=${OIDC_PROVIDER_NAME:-}
+      - OIDC_AUTO_PROVISION=false
+      # The device entitlement file; empty = the free cap (docs/ENTITLEMENT.md).
+      - ENTITLEMENT_FILE=/run/secrets/entitlement
+      - ENTITLEMENT_SUBSCRIPTION_URL=${ENTITLEMENT_SUBSCRIPTION_URL:-}
+      # Devices each account may hold (0 = no per-account limit), and where an
+      # account at its limit writes for more (docs/ENTITLEMENT.md).
+      - ACCOUNT_DEVICE_LIMIT=${ACCOUNT_DEVICE_LIMIT:-0}
+      - ACCOUNT_DEVICE_LIMIT_CONTACT=${ACCOUNT_DEVICE_LIMIT_CONTACT:-}
+    # /health is LIVENESS and must stay the probe here: pointing a container
+    # healthcheck at /ready turns a database outage into a restart loop.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    secrets:
+      - db_password
+      - jwt_secret
+      - secrets_encryption_key
+      - secrets_encryption_key_old
+      - cdn_signing_key
+      - invite_code
+      - eeprom_signer_token
+      - oidc_client_secret
+      - s3_access_key
+      - s3_secret_key
+      - smtp_password
+      - entitlement
+    ports:
+      # Loopback only; the reverse proxy forwards to these.
+      - "127.0.0.1:${BACKEND_HTTP_BIND_PORT:-8080}:8080"
+      # 50052 on the host, not 50051: a proxy on this host listens on 50051
+      # on every address (the port devices dial), and a loopback binding of
+      # the same number makes that listener fail to start.
+      - "127.0.0.1:${AGENT_GRPC_BIND_PORT:-50052}:50051"
+    volumes:
+      - orchestrator-backend-storage:/app/storage
+      - ${DATA_PATH:-./data}/net_install:/app/net_install:ro
+      # The GPL corresponding-source archives served at /source/ once
+      # SOURCE_OFFER_DIR names this mount. Read-only: placed by hand.
+      - ${DATA_PATH:-./data}/source-offer:/app/source-offer:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - orchestrator-network
+      - orchestrator-signer-network
+    deploy:
+      resources:
+        limits:
+          memory: ${BACKEND_MEMORY_LIMIT:-1G}
+          # The same number as `pids_limit` above, said twice on purpose: some
+          # Compose releases refuse a service that sets `pids_limit` beside a
+          # `deploy.resources.limits` block without `pids` in it.
+          pids: 512
+
+  frontend:
+    <<: *default-hardening
+    pids_limit: 128
+    image: ghcr.io/uptime-lab/orchestrator/frontend:${PLATFORM_VERSION:?set PLATFORM_VERSION to the platform release you are installing}
+    container_name: orchestrator-frontend
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      # The SPA calls <API_URL>/api/v1/… and opens <WEBSOCKET_URL>/ws; the
+      # proxy strips the first /api and the first /ws (docs/INSTALL.md).
+      - API_URL=${PUBLIC_SCHEME:-https}://${DOMAIN}/api
+      - WEBSOCKET_URL=${PUBLIC_WS_SCHEME:-wss}://${DOMAIN}/ws
+      - ESSENTIALS_API_ONLY=false
+      # An https link to your own terms of use; empty shows none (docs/INSTALL.md).
+      - TERMS_URL=${TERMS_URL:-}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    ports:
+      - "127.0.0.1:${FRONTEND_BIND_PORT:-8088}:8080"
+    depends_on:
+      - backend
+    networks:
+      - orchestrator-network
+
+  # The only holder of the EEPROM signing key. It sits on its own internal
+  # network with the backend alone, has no route from the proxy, and refuses
+  # to start without a token. docs/NETWORK-FIRST.md explains what it bakes.
+  eeprom-signer:
+    <<: *default-hardening
+    pids_limit: 128
+    image: ghcr.io/uptime-lab/orchestrator/eeprom-signer:${PLATFORM_VERSION:?set PLATFORM_VERSION to the platform release you are installing}
+    container_name: orchestrator-eeprom-signer
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      # Baked into every device's bootloader as the HTTP boot host. Changing
+      # it later means re-flashing every device (docs/BACKUP-RESTORE.md).
+      - HTTP_HOST=${PROVISIONING_BOOT_HOST:-${DOMAIN}}
+      - BOOT_ORDER=${BOOT_ORDER:-0xf1467}
+      - SIGNER_TOKEN_FILE=/run/secrets/eeprom_signer_token
+    secrets:
+      - eeprom_signer_token
+    volumes:
+      - ${DATA_PATH:-./data}/eeprom-keys:/keys:ro
+      - ${DATA_PATH:-./data}/eeprom-build:/eeprom-build:ro
+      - ${DATA_PATH:-./data}/net_install/eeprom:/output
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:9099/health', timeout=5)\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - orchestrator-signer-network
+
+  # ---------------------------------------------------------------------
+  # Bundled reverse proxies. Neither starts unless COMPOSE_PROFILES names
+  # its profile, so an install with its own proxy is unchanged. Both listen
+  # on the device-facing ports, forward by the route table of
+  # docs/INSTALL.md, and send a PROXY protocol v2 header on the agent port —
+  # set AGENT_GRPC_PROXY_PROTOCOL=require with either. NET_BIND_SERVICE is
+  # the one capability a listener on ports 80 and 443 needs.
+
+  # Plain HTTP on a trusted local network: no certificate. Needs
+  # PUBLIC_SCHEME=http, PUBLIC_WS_SCHEME=ws, GRPC_TLS_TERMINATED_EXTERNALLY=false
+  # and AGENT_GRPC_PLAINTEXT_OK=true in `.env` (docs/INSTALL.md, "The agent
+  # port", shape 3).
+  proxy-lan:
+    <<: *default-hardening
+    profiles: ["proxy-lan"]
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    pids_limit: 128
+    image: traefik:v3.7
+    container_name: orchestrator-proxy
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      # Agent connections one client address may hold (proxy/lan.yml).
+      - PROXY_AGENT_CONNECTIONS_PER_ADDRESS=${PROXY_AGENT_CONNECTIONS_PER_ADDRESS:-4096}
+      # HTTP connections one client address may hold (proxy/lan.yml).
+      - PROXY_HTTP_CONNECTIONS_PER_ADDRESS=${PROXY_HTTP_CONNECTIONS_PER_ADDRESS:-1024}
+    # Timeouts. Traefik has three per entry point: readTimeout is one
+    # deadline for reading a WHOLE request, body included, that progress
+    # does not extend (and, on a connection that has not chosen a route yet,
+    # the wait for its first bytes or its TLS ClientHello); writeTimeout the
+    # writing of a whole response; idleTimeout the gap between two requests
+    # on a kept-alive connection. Every value is written out, because the
+    # defaults (60 s, none, 180 s) are not what either port needs.
+    command:
+      # Port 80 is two entry points (proxy/lan.yml). `http`, the published
+      # one, has a single plaintext TCP route that passes every connection,
+      # unread, to `web`, which serves the HTTP routes; the route carries the
+      # per-address connection bound. Traefik picks that route without
+      # reading a byte and then clears the read bound, so 0 says that none
+      # applies: this hop bounds how many connections one address holds,
+      # not how long one lasts.
+      - --entrypoints.http.address=:80
+      - --entrypoints.http.transport.respondingTimeouts.readTimeout=0
+      # `web` listens on the container's loopback only, and learns each
+      # client's real address from the PROXY protocol header `http` sends.
+      - --entrypoints.web.address=127.0.0.1:8081
+      - --entrypoints.web.proxyProtocol.trustedIPs=127.0.0.1/32
+      # It carries everything here, multi-gigabyte image uploads and
+      # downloads, the WebSocket and the web terminal included, so no read
+      # or write bound can be finite without becoming an upload or download
+      # ceiling: both stay 0 on this trusted-network shape. A client that
+      # connects and sends nothing, or half a header, is therefore not timed
+      # out; the per-address connection bound in proxy/lan.yml caps how many
+      # such connections one address holds. The backend bounds a stalled
+      # body before authentication itself.
+      - --entrypoints.web.transport.respondingTimeouts.readTimeout=0
+      - --entrypoints.web.transport.respondingTimeouts.writeTimeout=0
+      # A kept-alive connection with no request in flight is closed after a
+      # minute; a request in progress and an upgraded WebSocket are not idle.
+      - --entrypoints.web.transport.respondingTimeouts.idleTimeout=60s
+      - --entrypoints.grpc.address=:50051
+      # The agent port has one catch-all plaintext TCP route, which Traefik
+      # picks without reading a byte, so no read bound applies before the
+      # backend's own pre-authentication deadline does; 0 says that no
+      # bound reaches the agent's long-lived stream either.
+      - --entrypoints.grpc.transport.respondingTimeouts.readTimeout=0
+      # The routes come from the mounted proxy/ DIRECTORY, watched. Never
+      # mount the file itself: git, an editor and rsync replace a file
+      # rather than rewrite it, and a single-file mount keeps showing the
+      # old one, so an upgrade's routes would never reach the running proxy.
+      - --providers.file.filename=/etc/traefik/routes/lan.yml
+      - --providers.file.watch=true
+    ports:
+      - "80:80"
+      - "50051:50051"
+    volumes:
+      - ./proxy:/etc/traefik/routes:ro
+    networks:
+      - orchestrator-network
+
+  # HTTPS for a server reached by a public DNS name: a Let's Encrypt
+  # certificate for DOMAIN, obtained over port 80, also terminates TLS on
+  # the agent port. ACME_EMAIL is where Let's Encrypt sends expiry notices.
+  proxy-tls:
+    <<: *default-hardening
+    profiles: ["proxy-tls"]
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    pids_limit: 128
+    image: traefik:v3.7
+    container_name: orchestrator-proxy
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      - DOMAIN=${DOMAIN}
+      # Agent connections one client address may hold (proxy/tls.yml).
+      - PROXY_AGENT_CONNECTIONS_PER_ADDRESS=${PROXY_AGENT_CONNECTIONS_PER_ADDRESS:-4096}
+      # HTTPS connections one client address may hold (proxy/tls.yml).
+      - PROXY_HTTPS_CONNECTIONS_PER_ADDRESS=${PROXY_HTTPS_CONNECTIONS_PER_ADDRESS:-1024}
+    # Timeouts: what each of Traefik's three means is said at proxy-lan above.
+    command:
+      - --entrypoints.web.address=:80
+      # Port 80 serves only GET requests here: the boot ROM's /http-boot,
+      # the Let's Encrypt challenge and redirects to HTTPS. 30 s to send a
+      # request with no body is generous, and it also bounds a connection
+      # that sends nothing. 30 min to write a response is the recovery image
+      # (about 100 MB) at under 60 KB/s, slower than any device boots over.
+      - --entrypoints.web.transport.respondingTimeouts.readTimeout=30s
+      - --entrypoints.web.transport.respondingTimeouts.writeTimeout=30m
+      - --entrypoints.web.transport.respondingTimeouts.idleTimeout=60s
+      # Port 443 is two entry points (proxy/tls.yml). `https`, the published
+      # one, has a single TCP route that passes the TLS connection, unopened,
+      # to `websecure`, which terminates TLS and serves the HTTP routes.
+      # Traefik applies an entry point's readTimeout to a connection only
+      # until it has read the TLS ClientHello and chosen a route, then clears
+      # it, so 10 s here closes a connection that sends nothing, or less than
+      # a ClientHello, and never touches a request.
+      - --entrypoints.https.address=:443
+      - --entrypoints.https.transport.respondingTimeouts.readTimeout=10s
+      # `websecure` listens on the container's loopback only, and learns each
+      # client's real address from the PROXY protocol header `https` sends.
+      - --entrypoints.websecure.address=127.0.0.1:8443
+      - --entrypoints.websecure.proxyProtocol.trustedIPs=127.0.0.1/32
+      # It carries multi-gigabyte image uploads and disk captures, each ONE
+      # request whose body takes as long as the link needs, and image
+      # downloads, the WebSocket and the web terminal, which last as long as
+      # they are used. Traefik's readTimeout is one deadline for the whole
+      # request, body included, however steadily the body arrives, and it
+      # also bounds the TLS handshake and the headers; it has no separate
+      # bound for those. So any finite read or write bound here is an upload
+      # or download ceiling: both stay 0. So nothing after the ClientHello
+      # is timed out: neither a client that stalls the rest of the TLS
+      # handshake nor one that completes TLS and then sends no request, or
+      # half a header, over HTTP/1.1. The per-address connection bound in
+      # proxy/tls.yml caps how many such connections one address holds.
+      # Over HTTP/2 the client's preface must arrive within 10 s. The
+      # backend bounds a stalled body before authentication itself.
+      - --entrypoints.websecure.transport.respondingTimeouts.readTimeout=0
+      - --entrypoints.websecure.transport.respondingTimeouts.writeTimeout=0
+      # A kept-alive connection with no request in flight is closed after a
+      # minute; a request in progress and an upgraded WebSocket are not idle.
+      - --entrypoints.websecure.transport.respondingTimeouts.idleTimeout=60s
+      - --entrypoints.grpc.address=:50051
+      # The agent port has a TLS-terminated TCP route only. Traefik applies
+      # readTimeout to a connection until it has read the TLS ClientHello and
+      # chosen the route, then clears it, so 10 s bounds a connection that
+      # sends nothing, and the agent's long-lived stream, once routed, has no
+      # deadline from the proxy at all.
+      - --entrypoints.grpc.transport.respondingTimeouts.readTimeout=10s
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      # The mounted proxy/ directory, watched, as at proxy-lan above.
+      - --providers.file.filename=/etc/traefik/routes/tls.yml
+      - --providers.file.watch=true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "50051:50051"
+    volumes:
+      - ./proxy:/etc/traefik/routes:ro
+      - ${DATA_PATH:-./data}/proxy:/letsencrypt
+    networks:
+      - orchestrator-network
+
+volumes:
+  orchestrator-postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/postgres
+  orchestrator-backend-storage:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}/backend/storage
+
+networks:
+  # Named so that a reverse proxy running as its own container can join it
+  # (`networks: [orchestrator-network]` with `external: true`) and reach
+  # `backend:8080`, `backend:50051` and `frontend:8080` by service name.
+  orchestrator-network:
+    name: orchestrator-network
+    driver: bridge
+  orchestrator-signer-network:
+    driver: bridge
+    internal: true

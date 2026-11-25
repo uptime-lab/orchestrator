@@ -1,0 +1,13 @@
+# A CM4 on an unspecified carrier exposing a standard 40-pin header. The
+# catch-all for carriers we have no profile for: no fixed peripherals are
+# assumed, but modules (and HATs) can still be equipped on the header.
+id: generic-cm4
+name: Generic CM4 carrier
+description: CM4 on an unspecified carrier board with a standard 40-pin GPIO header.
+fits: [CM4, CM4S]
+ports:
+  - id: gpio-header
+    name: GPIO header (40-pin)
+    pinout: rpi-40pin
+    pin_from: 1
+    pin_to: 40

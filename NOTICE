@@ -1,0 +1,21 @@
+Uptime Orchestrator
+Copyright 2025-2026 Uptime Lab Inc. and the Uptime Orchestrator authors
+
+Licensed under the Apache License, Version 2.0: the agent (agent/), the
+protocol (proto/), the artifact signer (tools/agent-signer/), the
+entitlement signer (tools/entitlement-signer/), the public publication guard
+(tools/publication-guard/), the configuration-reference generator
+(tools/configref/), the notices generator (tools/notices/) and the netboot
+tooling (tools/netboot/) — every directory under tools/; and, inside
+the Fair Core License directories, the generated protocol code
+(backend/pkg/webapp/infrastructure/grpc/proto/), the public-key files of the
+three trust stores (signing/trusted-keys/,
+backend/pkg/webapp/infrastructure/signing/keys/, agent/pkg/signing/keys/) and
+the URL-credential redaction
+(backend/pkg/webapp/domain/node_command/details_redaction.go and its test).
+The rest of this repository is licensed under the Fair Core License,
+Version 1.0, ALv2 Future License; see LICENSE. REUSE.toml is the
+machine-readable map and wins where a description disagrees.
+
+This product includes software developed by third parties; the licence and
+notice texts their licences require are reproduced in THIRD-PARTY-NOTICES.md.
