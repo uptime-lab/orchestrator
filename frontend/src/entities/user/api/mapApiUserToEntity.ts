@@ -7,6 +7,9 @@ export type ApiUserResult = {
   // email_verified reports proven mailbox ownership. Absent on responses from
   // a backend predating verification — treat that as "not verified".
   email_verified?: boolean
+  // The stored acceptance of the operator's terms. The wire name is the one
+  // the field was introduced under.
+  beta_notice_acknowledged?: boolean
   created_at: string
   updated_at: string
 }
@@ -32,6 +35,7 @@ export const mapApiUserToEntity = (apiUser: ApiUserResult): UserEntity => {
     surname,
     email: apiUser.email,
     email_verified: apiUser.email_verified === true,
+    terms_accepted: apiUser.beta_notice_acknowledged === true,
     nickname: undefined,
     role: UserRole.Normal, // Default role, API doesn't provide this
     is_active: true, // Default to active, API doesn't provide this

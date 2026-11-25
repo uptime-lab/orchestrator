@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseTermsUrl, termsAcceptance } from './parse'
+import { needsTermsAcceptance, parseTermsUrl, termsAcceptance } from './parse'
 
 describe('parseTermsUrl', () => {
   it('accepts an absolute https URL', () => {
@@ -45,5 +45,25 @@ describe('termsAcceptance', () => {
       ok: true,
       terms_accepted: true,
     })
+  })
+})
+
+describe('needsTermsAcceptance', () => {
+  const url = 'https://example.com/terms'
+
+  it('asks a signed-in user with no stored acceptance', () => {
+    expect(needsTermsAcceptance(url, { terms_accepted: false })).toBe(true)
+  })
+
+  it('does not ask a user whose acceptance is stored', () => {
+    expect(needsTermsAcceptance(url, { terms_accepted: true })).toBe(false)
+  })
+
+  it('asks nobody on an install with no terms', () => {
+    expect(needsTermsAcceptance(null, { terms_accepted: false })).toBe(false)
+  })
+
+  it('asks nobody before sign-in', () => {
+    expect(needsTermsAcceptance(url, undefined)).toBe(false)
   })
 })

@@ -1,6 +1,7 @@
 import { deleteUser } from './deleteUser.ts'
 import { getCurrentUser } from './getCurrentUser.ts'
 import { getUsers } from './getUsers.ts'
+import { postTermsAcceptance } from './postTermsAcceptance.ts'
 import { putApproveUser } from './putApproveUser.ts'
 import { putUpdateUser } from './putUpdateUser.ts'
 
@@ -10,4 +11,5 @@ export const apiUsers = {
   putUpdateUser,
   putApproveUser,
   deleteUser,
+  postTermsAcceptance,
 }

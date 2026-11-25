@@ -15,6 +15,10 @@ first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- On an install with `TERMS_URL` set, only the e-mail sign-up form asked for
+  the terms: an account made through an identity provider or by an
+  invitation was never asked. A signed-in user with no stored acceptance is
+  now asked once, in a dialog, and the acceptance is recorded as before.
 - The publication guard's shape check, on a diff, read a file name with a
   space in it with git's trailing TAB attached and did not read a quoted
   (non-ASCII) name at all: the first was judged as prose whatever its
