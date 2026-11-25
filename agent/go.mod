@@ -8,7 +8,7 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/google/uuid v1.6.0
-	github.com/klauspost/compress v1.20.4
+	github.com/klauspost/compress v1.20.5
 	github.com/ulikunitz/xz v0.5.17
 	github.com/warthog618/go-gpiocdev v0.10.0
 	golang.org/x/sys v0.50.0
