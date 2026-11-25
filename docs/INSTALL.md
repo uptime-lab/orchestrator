@@ -371,7 +371,9 @@ PLATFORM_VERSION=<version>       # the release you cloned; no default
 `https://` page with your terms of use, and the sign-up form requires an
 "I agree to the Terms of Use" checkbox linking to it, the account menu links
 to it, and the backend stores each acceptance with a timestamp and an audit
-event. Empty, or anything but `https://`, shows nothing. The product ships no
+event. Anyone who signs in with no stored acceptance (an account made through
+an identity provider or an invitation, or one older than the setting) is
+asked once, in a dialog that offers to accept or to sign out. Empty, or anything but `https://`, shows nothing. The product ships no
 terms of its own. It is read when the frontend container starts, so a change
 needs a restart of that container only.
 

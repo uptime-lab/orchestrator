@@ -2468,7 +2468,14 @@
     "terms": {
       "agree": "I agree to the",
       "link": "Terms of Use",
-      "required": "Agree to the Terms of Use to sign up."
+      "required": "Agree to the Terms of Use to sign up.",
+      "gate": {
+        "title": "Terms of Use",
+        "intro": "This service has terms of use. Read and accept them to continue.",
+        "continue": "Continue",
+        "decline": "Sign out",
+        "error": "Could not record your acceptance. Please try again."
+      }
     },
     "node": {
       "watchdogFields": {

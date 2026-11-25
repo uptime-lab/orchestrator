@@ -21,6 +21,15 @@ export const parseTermsUrl = (raw: unknown): string | null => {
   return url.toString()
 }
 
+// needsTermsAcceptance says whether a signed-in user must still be asked. The
+// sign-up form asks before the account exists; every other way in (an
+// identity provider, an invitation, an account older than the terms) reaches
+// the app with nothing stored, and is asked once there.
+export const needsTermsAcceptance = (
+  termsUrl: string | null,
+  user: { terms_accepted: boolean } | undefined,
+): boolean => !!termsUrl && !!user && !user.terms_accepted
+
 // termsAcceptance decides what the sign-up request says about the terms. With
 // no terms configured it says nothing; with terms configured the box must be
 // ticked, and the request carries the acceptance so the backend records it.

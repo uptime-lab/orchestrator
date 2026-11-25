@@ -84,9 +84,10 @@ The application supports the following environment variables that can be configu
 - `TERMS_URL` - An `https://` link to the operator's own terms of use. When set, the sign-up
   form shows a required "I agree to the Terms of Use" checkbox linking to it, and the account
   menu shows a "Terms of Use" link. Unset, empty or not `https://` = nothing is shown and
-  sign-up asks for no agreement. The product ships no terms text of its own. The acceptance is
-  sent with the sign-up request (`terms_accepted`) and stored by the backend with a timestamp
-  and an audit event.
+  sign-up asks for no agreement. A signed-in user with no stored acceptance (an account made
+  through an identity provider or an invitation) is asked once in a dialog. The product ships
+  no terms text of its own. The acceptance is sent with the sign-up request (`terms_accepted`)
+  or from the dialog, and stored by the backend with a timestamp and an audit event.
 
 These variables can be set in two ways:
 

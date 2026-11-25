@@ -14,6 +14,7 @@ import {
   SidebarEnum,
   SidebarWidgetParams,
 } from '@/widgets/sidebars/types.ts'
+import { TermsGate } from '@/widgets/termsGate'
 
 import { authHooks } from '@/entities/auth'
 import { AuthStatus } from '@/entities/auth/types'
@@ -127,6 +128,10 @@ export const Route = createFileRoute('/_mainLayout')({
       <>
         <ConnectionLostBadge />
         <SessionSwitchedNotice />
+        {/* Renders nothing unless this install set a terms link and the
+            backend holds no acceptance for this user. On the layout, so it
+            covers every signed-in page however the user got in. */}
+        <TermsGate />
         {/* Mounted once for the whole authenticated app: before this there was no
             way to tell the user anything, so failures went to console.error. */}
         <ToastHost />

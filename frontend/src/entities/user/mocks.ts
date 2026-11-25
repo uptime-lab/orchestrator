@@ -5,6 +5,7 @@ export const userMock: UserEntity = {
   name: 'Orchestrator',
   surname: 'User',
   email_verified: true,
+  terms_accepted: true,
   email: 'orchestrator@example.com',
   nickname: 'orchestrator',
   role: UserRole.Admin,

@@ -10,6 +10,9 @@ export type UserEntity = {
   surname: string
   email: string
   email_verified: boolean
+  // terms_accepted: the backend holds this user's acceptance of the operator's
+  // terms. False keeps the acceptance dialog up on an install that set terms.
+  terms_accepted: boolean
   nickname?: string
   role: UserRole
   is_active: boolean

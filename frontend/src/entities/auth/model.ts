@@ -332,6 +332,14 @@ export const signUpAndLoginAuthFx = createEffect(
 
 // ============= Derived stores =============
 
+// acceptTermsFx records the signed-in user's acceptance of the operator's
+// terms. It lives here because the flag it flips sits on the user inside
+// $authState: the dialog closes on success without a reload, and a failure
+// leaves the flag false, so an acceptance that was not stored is asked again.
+export const acceptTermsFx = createEffect<void, void, AxiosError>(async () => {
+  await apiUsers.postTermsAcceptance()
+})
+
 export const isSignedIn = $authState.map(
   (state) => state.status === AuthStatus.LoggedIn,
 )
@@ -421,6 +429,11 @@ $authState
   .on(currentUserUpdated, (state, { user }) =>
     state.status === AuthStatus.LoggedIn && state.user.id === user.id
       ? { ...state, user }
+      : state,
+  )
+  .on(acceptTermsFx.done, (state) =>
+    state.status === AuthStatus.LoggedIn
+      ? { ...state, user: { ...state.user, terms_accepted: true } }
       : state,
   )
   .on(lockOut, (state) =>
