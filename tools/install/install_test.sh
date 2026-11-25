@@ -95,6 +95,91 @@ else
   bad "answers were read wrongly: MODE=$MODE ADDRESS=$ADDRESS NETBOOT=$NETBOOT"
 fi
 
+# A wrong answer to a question is asked again, with the reason; the next
+# line of the terminal is the next answer.
+printf '7\n2\n' >"$answers"
+MODE="" TTY_OPEN=0
+out=$(choose_mode 2>&1; printf '\nMODE=%s\n' "$MODE")
+if printf '%s\n' "$out" | grep -qx 'MODE=public' && printf '%s\n' "$out" | grep -q 'Answer 1 or 2'; then
+  ok "a wrong shape is asked again"
+else
+  bad "a wrong shape: $out"
+fi
+printf 'elsewhere.home.arpa\nserver.local\nserver.home.arpa\n' >"$answers"
+MODE=lan ADDRESS="" TTY_OPEN=0
+out=$(choose_lan_address 2>&1; printf '\nADDRESS=%s\n' "$ADDRESS")
+if printf '%s\n' "$out" | grep -qx 'ADDRESS=server.home.arpa' && printf '%s\n' "$out" | grep -q 'sent to another host' &&
+  printf '%s\n' "$out" | grep -q 'multicast'; then
+  ok "a refused address is asked again, each time with its reason"
+else
+  bad "a refused address: $out"
+fi
+printf 'maybe\nn\n' >"$answers"
+NETBOOT="" TTY_OPEN=0
+out=$(choose_netboot 2>&1; printf '\nNETBOOT=%s\n' "$NETBOOT")
+if printf '%s\n' "$out" | grep -qx 'NETBOOT=no' && printf '%s\n' "$out" | grep -q 'Answer y or n'; then
+  ok "a wrong network-boot answer is asked again"
+else
+  bad "a wrong network-boot answer: $out"
+fi
+printf 'nobody\n\nowner@example.test\n' >"$answers"
+OWNER_EMAIL="" EMAIL="" TTY_OPEN=0
+out=$(choose_owner 2>&1; printf '\nOWNER=%s\n' "$OWNER_EMAIL")
+if printf '%s\n' "$out" | grep -qx 'OWNER=owner@example.test' && printf '%s\n' "$out" | grep -q 'nobody is not an email address' &&
+  printf '%s\n' "$out" | grep -q 'An empty answer is not an email address'; then
+  ok "a wrong owner address, and an empty one, are asked again"
+else
+  bad "a wrong owner address: $out"
+fi
+OWNER_EMAIL=""
+
+# The loop ends when the terminal has no more answers: never a spin.
+printf '7\n' >"$answers"
+out=$( (MODE="" TTY_OPEN=0; choose_mode) 2>&1 ) && rc=0 || rc=$?
+if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q 'no answer to'; then
+  ok "wrong answers followed by a closed terminal end the run"
+else
+  bad "a closed terminal after a wrong answer: rc=$rc, said: $out"
+fi
+
+# A wrong FLAG is not a question: it ends the run.
+out=$( (MODE=lan ADDRESS=elsewhere.home.arpa TTY_IN=/nonexistent/tty TTY_OPEN=0; choose_lan_address) 2>&1 ) && rc=0 || rc=$?
+if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q 'sent to another host'; then
+  ok "a wrong --address ends the run, nothing is asked"
+else
+  bad "a wrong --address: rc=$rc, said: $out"
+fi
+
+# A public name: a malformed one is asked again; one that resolves nowhere is
+# kept only on a yes, and a flag keeps the warning without a question.
+public_run() { # answers on the terminal file; prints what was said and DOMAIN=
+  (getent() { case "$2" in there.example.com) printf '203.0.113.9 STREAM there.example.com\n' ;; esac; }
+    MODE=public DOMAIN=${1:-} EMAIL=notices@example.test ASSUME_YES=0 TTY_OPEN=0
+    choose_public_name; printf '\nDOMAIN=%s\n' "$DOMAIN") 2>&1
+}
+printf 'not a name\nnowhere.example.com\n\nthere.example.com\n' >"$answers"
+out=$(public_run) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qx 'DOMAIN=there.example.com' &&
+  printf '%s\n' "$out" | grep -q 'is not a DNS name' && printf '%s\n' "$out" | grep -q 'nowhere.example.com does not resolve yet'; then
+  ok "a public name is asked again when malformed and when it resolves nowhere"
+else
+  bad "a public name asked again: rc=$rc, said: $out"
+fi
+printf 'nowhere.example.com\ny\n' >"$answers"
+out=$(public_run) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qx 'DOMAIN=nowhere.example.com'; then
+  ok "a public name that resolves nowhere is kept on a yes"
+else
+  bad "a public name kept on a yes: rc=$rc, said: $out"
+fi
+: >"$answers"
+out=$(public_run nowhere.example.com) && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qx 'DOMAIN=nowhere.example.com' && printf '%s\n' "$out" | grep -q 'does not resolve yet'; then
+  ok "--domain that resolves nowhere warns and asks nothing"
+else
+  bad "--domain that resolves nowhere: rc=$rc, said: $out"
+fi
+
 # A multicast name is refused for a local install, with the reason.
 MODE=lan ADDRESS=server.local
 if (choose_lan_address >/dev/null 2>&1); then bad "a .local address was accepted"; else ok "refuses a .local address"; fi
@@ -532,6 +617,24 @@ git -C "$rel" tag platform-v1.0.0
 out=$( (umask 077; REPO_URL=$rel DIR="$scratch/cloned" SOURCE="" VERSION=1.0.0 VERSION_GIVEN=1 RESUME=0 RELEASE_RESOLVED=0
   fetch_release >/dev/null 2>&1; ls -l "$scratch/cloned/proxy/tls.yml" | cut -c1-10; ls -ld "$scratch/cloned/proxy" | cut -c1-10) 2>&1 | tr '\n' ' ')
 [ "$out" = "-rw-r--r-- drwxr-xr-x " ] && ok "proxy routes cloned under umask 077 are readable by the proxy" || bad "proxy routes cloned under umask 077: $out"
+
+# An annotated tag clones without git's "is not a commit" warning, and lands
+# on the tag; a release the repository does not have leaves no directory.
+git -C "$rel" -c user.name=t -c user.email=t@example.com tag -a platform-v1.0.1 -m "Platform 1.0.1"
+out=$( (REPO_URL=$rel DIR="$scratch/annotated" SOURCE="" VERSION=1.0.1 VERSION_GIVEN=1 RESUME=0 RELEASE_RESOLVED=0 IMAGE_CHECK=off
+  fetch_release 2>&1 >/dev/null; git -C "$scratch/annotated" tag --points-at HEAD | tr '\n' ' ') 2>&1 )
+if printf '%s' "$out" | grep -q 'platform-v1.0.1' && ! printf '%s' "$out" | grep -qi 'warning\|not a commit'; then
+  ok "an annotated release tag is cloned quietly"
+else
+  bad "an annotated release tag: $out"
+fi
+out=$( (REPO_URL=$rel DIR="$scratch/absent" SOURCE="" VERSION=9.9.9 VERSION_GIVEN=1 RESUME=0 RELEASE_RESOLVED=0 IMAGE_CHECK=off
+  fetch_release) 2>&1 ) && rc=0 || rc=$?
+if [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q 'has no tag platform-v9.9.9' && [ ! -e "$scratch/absent" ]; then
+  ok "a release the repository does not have is refused and leaves no directory"
+else
+  bad "a missing release tag: rc=$rc, said: $out, left: $(ls -d "$scratch/absent" 2>&1)"
+fi
 
 # An agent release downloaded under a strict umask is readable by the import
 # container, which runs as another uid.
