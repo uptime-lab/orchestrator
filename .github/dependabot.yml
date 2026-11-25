@@ -70,9 +70,17 @@ updates:
       timezone: Europe/Berlin
     open-pull-requests-limit: 2
     rebase-strategy: disabled
+    # Minor and patch versions travel together; a major version arrives as a
+    # pull request of its own, because each one is a migration (a CSS
+    # framework, the compiler, the linter) and a group that mixes them can
+    # only be closed whole. Dependabot rewrites the lockfile without the
+    # `pnpm.overrides` block of package.json, so its npm pull requests fail
+    # the frozen install until `pnpm install` is run on the branch and the
+    # lockfile pushed.
     groups:
       npm-dependencies:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   # ---------------------------------------------------------- GitHub Actions
   # Every action here is SHA-pinned with a `# vN` comment and Dependabot updates
