@@ -18,20 +18,19 @@ for the agent baked into it.
 | `Go standard library and runtime` | go1.26.11 | BSD-3-Clause | [T1](#t1) |
 | `cel.dev/expr` | v0.25.3 | Apache-2.0 | [T2](#t2) |
 | `cloud.google.com/go` | v0.123.0 | Apache-2.0 | [T2](#t2) |
-| `cloud.google.com/go/auth` | v0.24.1 | Apache-2.0 | [T2](#t2) |
-| `cloud.google.com/go/auth/oauth2adapt` | v0.3.0 | Apache-2.0 | [T2](#t2) |
+| `cloud.google.com/go/auth` | v0.24.4 | Apache-2.0 | [T2](#t2) |
+| `cloud.google.com/go/auth/oauth2adapt` | v0.3.1 | Apache-2.0 | [T2](#t2) |
 | `cloud.google.com/go/compute/metadata` | v0.10.0 | Apache-2.0 | [T2](#t2) |
-| `cloud.google.com/go/iam` | v1.12.0 | Apache-2.0 | [T2](#t2) |
+| `cloud.google.com/go/iam` | v1.15.1 | Apache-2.0 | [T2](#t2) |
 | `cloud.google.com/go/monitoring` | v1.30.0 | Apache-2.0 | [T2](#t2) |
-| `cloud.google.com/go/storage` | v1.70.0 | Apache-2.0 | [T2](#t2) |
-| `github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp` | v1.35.0 | Apache-2.0 | [T2](#t2) |
-| `github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric` | v0.57.0 | Apache-2.0 | [T2](#t2) |
-| `github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping` | v0.57.0 | Apache-2.0 | [T2](#t2) |
+| `cloud.google.com/go/storage` | v1.71.0 | Apache-2.0 | [T2](#t2) |
+| `github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric` | v0.62.0 | Apache-2.0 | [T2](#t2) |
+| `github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping` | v0.62.0 | Apache-2.0 | [T2](#t2) |
 | `github.com/KyleBanks/depth` | v1.2.1 | MIT | [T3](#t3) |
 | `github.com/aws/aws-sdk-go-v2` | v1.48.0 | Apache-2.0 + NOTICE | [T2](#t2), [T4](#t4) |
 | `github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream` | v1.7.27 | Apache-2.0 | [T2](#t2) |
-| `github.com/aws/aws-sdk-go-v2/credentials` | v1.21.0 | Apache-2.0 | [T2](#t2) |
-| `github.com/aws/aws-sdk-go-v2/feature/s3/manager` | v1.23.24 | Apache-2.0 | [T2](#t2) |
+| `github.com/aws/aws-sdk-go-v2/credentials` | v1.21.3 | Apache-2.0 | [T2](#t2) |
+| `github.com/aws/aws-sdk-go-v2/feature/s3/manager` | v1.23.28 | Apache-2.0 | [T2](#t2) |
 | `github.com/aws/aws-sdk-go-v2/internal/configsources` | v1.5.12 | Apache-2.0 | [T2](#t2) |
 | `github.com/aws/aws-sdk-go-v2/internal/endpoints/v2` | v2.8.12 | Apache-2.0 | [T2](#t2) |
 | `github.com/aws/aws-sdk-go-v2/internal/v4a` | v1.5.12 | Apache-2.0 | [T2](#t2) |
@@ -39,7 +38,7 @@ for the agent baked into it.
 | `github.com/aws/aws-sdk-go-v2/service/internal/checksum` | v1.11.13 | Apache-2.0 | [T2](#t2) |
 | `github.com/aws/aws-sdk-go-v2/service/internal/presigned-url` | v1.14.12 | Apache-2.0 | [T2](#t2) |
 | `github.com/aws/aws-sdk-go-v2/service/internal/s3shared` | v1.20.12 | Apache-2.0 | [T2](#t2) |
-| `github.com/aws/aws-sdk-go-v2/service/s3` | v1.114.10 | Apache-2.0 | [T2](#t2) |
+| `github.com/aws/aws-sdk-go-v2/service/s3` | v1.116.0 | Apache-2.0 | [T2](#t2) |
 | `github.com/aws/smithy-go` | v1.28.9 | Apache-2.0 + NOTICE | [T5](#t5), [T6](#t6) |
 | `github.com/boombuler/barcode` | v1.0.1-0.20190219062509-6c824513bacc | MIT | [T7](#t7) |
 | `github.com/cespare/xxhash/v2` | v2.3.0 | MIT | [T8](#t8) |
@@ -49,7 +48,7 @@ for the agent baked into it.
 | `github.com/envoyproxy/protoc-gen-validate` | v1.3.3 | Apache-2.0 | [T2](#t2) |
 | `github.com/felixge/httpsnoop` | v1.1.0 | MIT | [T12](#t12) |
 | `github.com/fxamacker/cbor/v2` | v2.10.0 | MIT | [T13](#t13) |
-| `github.com/go-jose/go-jose/v4` | v4.1.4 | Apache-2.0 | [T2](#t2) |
+| `github.com/go-jose/go-jose/v4` | v4.1.6 | Apache-2.0 | [T2](#t2) |
 | `github.com/go-logr/logr` | v1.4.4 | Apache-2.0 | [T11](#t11) |
 | `github.com/go-logr/stdr` | v1.2.2 | Apache-2.0 | [T2](#t2) |
 | `github.com/go-openapi/jsonpointer` | v0.19.6 | Apache-2.0 | [T2](#t2) |
@@ -63,8 +62,8 @@ for the agent baked into it.
 | `github.com/google/go-tpm` | v0.9.8 | Apache-2.0 | [T2](#t2) |
 | `github.com/google/s2a-go` | v0.1.11 | Apache-2.0 | [T2](#t2) |
 | `github.com/google/uuid` | v1.6.0 | BSD-3-Clause | [T18](#t18) |
-| `github.com/googleapis/enterprise-certificate-proxy` | v0.3.23 | Apache-2.0 | [T2](#t2) |
-| `github.com/googleapis/gax-go/v2` | v2.26.2 | BSD-3-Clause | [T19](#t19) |
+| `github.com/googleapis/enterprise-certificate-proxy` | v0.3.25 | Apache-2.0 | [T2](#t2) |
+| `github.com/googleapis/gax-go/v2` | v2.27.0 | BSD-3-Clause | [T19](#t19) |
 | `github.com/gorilla/websocket` | v1.5.4-0.20240701034025-d67f41855da4 | BSD-2-Clause | [T20](#t20) |
 | `github.com/jackc/pgpassfile` | v1.0.0 | MIT | [T21](#t21) |
 | `github.com/jackc/pgservicefile` | v0.0.0-20240606120523-5a60cdf6a761 | MIT | [T22](#t22) |
@@ -73,7 +72,7 @@ for the agent baked into it.
 | `github.com/jinzhu/inflection` | v1.0.0 | MIT | [T25](#t25) |
 | `github.com/jinzhu/now` | v1.1.5 | MIT | [T26](#t26) |
 | `github.com/josharian/intern` | v1.0.0 | MIT | [T27](#t27) |
-| `github.com/labstack/echo/v4` | v4.16.5 | MIT | [T28](#t28) |
+| `github.com/labstack/echo/v4` | v4.16.6 | MIT | [T28](#t28) |
 | `github.com/labstack/gommon` | v0.5.0 | MIT | [T29](#t29) |
 | `github.com/mailru/easyjson` | v0.7.7 | MIT | [T30](#t30) |
 | `github.com/mattn/go-colorable` | v0.1.15 | MIT | [T31](#t31) |
@@ -93,9 +92,9 @@ for the agent baked into it.
 | `github.com/valyala/fasttemplate` | v1.2.2 | MIT | [T43](#t43) |
 | `github.com/x448/float16` | v0.8.4 | MIT | [T44](#t44) |
 | `go.opentelemetry.io/auto/sdk` | v1.2.1 | Apache-2.0 | [T2](#t2) |
-| `go.opentelemetry.io/contrib/detectors/gcp` | v1.45.0 | Apache-2.0 | [T45](#t45) |
-| `go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc` | v0.68.0 | Apache-2.0 | [T45](#t45) |
-| `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp` | v0.69.0 | Apache-2.0 | [T45](#t45) |
+| `go.opentelemetry.io/contrib/detectors/gcp` | v1.47.0 | Apache-2.0 | [T45](#t45) |
+| `go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc` | v0.72.0 | Apache-2.0 | [T45](#t45) |
+| `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp` | v0.72.0 | Apache-2.0 | [T45](#t45) |
 | `go.opentelemetry.io/otel` | v1.47.0 | Apache-2.0 | [T45](#t45) |
 | `go.opentelemetry.io/otel/log` | v1.47.0 | Apache-2.0 | [T45](#t45) |
 | `go.opentelemetry.io/otel/metric` | v1.47.0 | Apache-2.0 | [T45](#t45) |
@@ -103,18 +102,18 @@ for the agent baked into it.
 | `go.opentelemetry.io/otel/sdk/metric` | v1.47.0 | Apache-2.0 | [T45](#t45) |
 | `go.opentelemetry.io/otel/trace` | v1.47.0 | Apache-2.0 | [T45](#t45) |
 | `golang.org/x/crypto` | v0.59.0 | BSD-3-Clause | [T1](#t1) |
-| `golang.org/x/mod` | v0.42.0 | BSD-3-Clause | [T1](#t1) |
+| `golang.org/x/mod` | v0.43.0 | BSD-3-Clause | [T1](#t1) |
 | `golang.org/x/net` | v0.63.0 | BSD-3-Clause | [T1](#t1) |
-| `golang.org/x/oauth2` | v0.37.0 | BSD-3-Clause | [T1](#t1) |
+| `golang.org/x/oauth2` | v0.38.0 | BSD-3-Clause | [T1](#t1) |
 | `golang.org/x/sync` | v0.25.0 | BSD-3-Clause | [T1](#t1) |
 | `golang.org/x/sys` | v0.50.0 | BSD-3-Clause | [T1](#t1) |
 | `golang.org/x/text` | v0.44.0 | BSD-3-Clause | [T1](#t1) |
 | `golang.org/x/time` | v0.16.0 | BSD-3-Clause | [T1](#t1) |
 | `golang.org/x/tools` | v0.52.0 | BSD-3-Clause | [T1](#t1) |
-| `google.golang.org/api` | v0.307.0 | BSD-3-Clause | [T46](#t46) |
-| `google.golang.org/genproto` | v0.0.0-20260715232425-e75dac1f907d | Apache-2.0 | [T2](#t2) |
-| `google.golang.org/genproto/googleapis/api` | v0.0.0-20260817212433-ac3dfec99bb1 | Apache-2.0 | [T2](#t2) |
-| `google.golang.org/genproto/googleapis/rpc` | v0.0.0-20261019180522-ce908d29299b | Apache-2.0 | [T2](#t2) |
+| `google.golang.org/api` | v0.312.0 | BSD-3-Clause | [T46](#t46) |
+| `google.golang.org/genproto` | v0.0.0-20261012220534-4341edf3f941 | Apache-2.0 | [T2](#t2) |
+| `google.golang.org/genproto/googleapis/api` | v0.0.0-20261110000943-09e21b237f2c | Apache-2.0 | [T2](#t2) |
+| `google.golang.org/genproto/googleapis/rpc` | v0.0.0-20261110000943-09e21b237f2c | Apache-2.0 | [T2](#t2) |
 | `google.golang.org/grpc` | v1.85.0 | Apache-2.0 + NOTICE | [T2](#t2), [T47](#t47) |
 | `google.golang.org/protobuf` | v1.36.12 | BSD-3-Clause | [T48](#t48) |
 | `gopkg.in/yaml.v2` | v2.4.0 | Apache-2.0 + MIT + NOTICE | [T11](#t11), [T49](#t49), [T50](#t50) |
@@ -131,7 +130,7 @@ for the agent baked into it.
 | `github.com/creack/pty` | v1.1.24 | MIT | [T54](#t54) |
 | `github.com/fsnotify/fsnotify` | v1.10.1 | BSD-3-Clause | [T55](#t55) |
 | `github.com/google/uuid` | v1.6.0 | BSD-3-Clause | [T18](#t18) |
-| `github.com/klauspost/compress` | v1.20.4 | Apache-2.0 | [T56](#t56) |
+| `github.com/klauspost/compress` | v1.20.5 | Apache-2.0 | [T56](#t56) |
 | `github.com/ulikunitz/xz` | v0.5.17 | BSD-3-Clause | [T57](#t57) |
 | `github.com/warthog618/go-gpiocdev` | v0.10.0 | MIT | [T58](#t58) |
 | `golang.org/x/net` | v0.63.0 | BSD-3-Clause | [T1](#t1) |
@@ -319,7 +318,7 @@ Each text is reproduced once, exactly as the component ships it (trailing whites
 
 ### T1
 
-Carried by: `Go standard library and runtime@go1.26.11`, `golang.org/x/crypto@v0.59.0`, `golang.org/x/mod@v0.42.0`, `golang.org/x/net@v0.63.0`, `golang.org/x/oauth2@v0.37.0`, `golang.org/x/sync@v0.25.0`, `golang.org/x/sys@v0.50.0`, `golang.org/x/text@v0.44.0`, `golang.org/x/time@v0.16.0`, `golang.org/x/tools@v0.52.0`, `golang.org/x/term@v0.48.0`.
+Carried by: `Go standard library and runtime@go1.26.11`, `golang.org/x/crypto@v0.59.0`, `golang.org/x/mod@v0.43.0`, `golang.org/x/net@v0.63.0`, `golang.org/x/oauth2@v0.38.0`, `golang.org/x/sync@v0.25.0`, `golang.org/x/sys@v0.50.0`, `golang.org/x/text@v0.44.0`, `golang.org/x/time@v0.16.0`, `golang.org/x/tools@v0.52.0`, `golang.org/x/term@v0.48.0`.
 
 ~~~~text
 Copyright 2009 The Go Authors.
@@ -353,7 +352,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### T2
 
-Carried by: `cel.dev/expr@v0.25.3`, `cloud.google.com/go@v0.123.0`, `cloud.google.com/go/auth@v0.24.1`, `cloud.google.com/go/auth/oauth2adapt@v0.3.0`, `cloud.google.com/go/compute/metadata@v0.10.0`, `cloud.google.com/go/iam@v1.12.0`, `cloud.google.com/go/monitoring@v1.30.0`, `cloud.google.com/go/storage@v1.70.0`, `github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp@v1.35.0`, `github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric@v0.57.0`, `github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping@v0.57.0`, `github.com/aws/aws-sdk-go-v2@v1.48.0`, `github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.7.27`, `github.com/aws/aws-sdk-go-v2/credentials@v1.21.0`, `github.com/aws/aws-sdk-go-v2/feature/s3/manager@v1.23.24`, `github.com/aws/aws-sdk-go-v2/internal/configsources@v1.5.12`, `github.com/aws/aws-sdk-go-v2/internal/endpoints/v2@v2.8.12`, `github.com/aws/aws-sdk-go-v2/internal/v4a@v1.5.12`, `github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding@v1.13.25`, `github.com/aws/aws-sdk-go-v2/service/internal/checksum@v1.11.13`, `github.com/aws/aws-sdk-go-v2/service/internal/presigned-url@v1.14.12`, `github.com/aws/aws-sdk-go-v2/service/internal/s3shared@v1.20.12`, `github.com/aws/aws-sdk-go-v2/service/s3@v1.114.10`, `github.com/cncf/xds/go@v0.0.0-20260202195803-dba9d589def2`, `github.com/envoyproxy/protoc-gen-validate@v1.3.3`, `github.com/go-jose/go-jose/v4@v4.1.4`, `github.com/go-logr/stdr@v1.2.2`, `github.com/go-openapi/jsonpointer@v0.19.6`, `github.com/go-openapi/jsonreference@v0.20.2`, `github.com/go-openapi/spec@v0.20.9`, `github.com/go-openapi/swag@v0.22.3`, `github.com/google/go-tpm@v0.9.8`, `github.com/google/s2a-go@v0.1.11`, `github.com/googleapis/enterprise-certificate-proxy@v0.3.23`, `github.com/pquerna/otp@v1.5.0`, `github.com/spiffe/go-spiffe/v2@v2.8.1`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `google.golang.org/genproto@v0.0.0-20260715232425-e75dac1f907d`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260817212433-ac3dfec99bb1`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20261019180522-ce908d29299b`, `google.golang.org/grpc@v1.85.0`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260817212433-ac3dfec99bb1`, `github.com/go-piv/piv-go/v2@v2.6.0`.
+Carried by: `cel.dev/expr@v0.25.3`, `cloud.google.com/go@v0.123.0`, `cloud.google.com/go/auth@v0.24.4`, `cloud.google.com/go/auth/oauth2adapt@v0.3.1`, `cloud.google.com/go/compute/metadata@v0.10.0`, `cloud.google.com/go/iam@v1.15.1`, `cloud.google.com/go/monitoring@v1.30.0`, `cloud.google.com/go/storage@v1.71.0`, `github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric@v0.62.0`, `github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping@v0.62.0`, `github.com/aws/aws-sdk-go-v2@v1.48.0`, `github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream@v1.7.27`, `github.com/aws/aws-sdk-go-v2/credentials@v1.21.3`, `github.com/aws/aws-sdk-go-v2/feature/s3/manager@v1.23.28`, `github.com/aws/aws-sdk-go-v2/internal/configsources@v1.5.12`, `github.com/aws/aws-sdk-go-v2/internal/endpoints/v2@v2.8.12`, `github.com/aws/aws-sdk-go-v2/internal/v4a@v1.5.12`, `github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding@v1.13.25`, `github.com/aws/aws-sdk-go-v2/service/internal/checksum@v1.11.13`, `github.com/aws/aws-sdk-go-v2/service/internal/presigned-url@v1.14.12`, `github.com/aws/aws-sdk-go-v2/service/internal/s3shared@v1.20.12`, `github.com/aws/aws-sdk-go-v2/service/s3@v1.116.0`, `github.com/cncf/xds/go@v0.0.0-20260202195803-dba9d589def2`, `github.com/envoyproxy/protoc-gen-validate@v1.3.3`, `github.com/go-jose/go-jose/v4@v4.1.6`, `github.com/go-logr/stdr@v1.2.2`, `github.com/go-openapi/jsonpointer@v0.19.6`, `github.com/go-openapi/jsonreference@v0.20.2`, `github.com/go-openapi/spec@v0.20.9`, `github.com/go-openapi/swag@v0.22.3`, `github.com/google/go-tpm@v0.9.8`, `github.com/google/s2a-go@v0.1.11`, `github.com/googleapis/enterprise-certificate-proxy@v0.3.25`, `github.com/pquerna/otp@v1.5.0`, `github.com/spiffe/go-spiffe/v2@v2.8.1`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `google.golang.org/genproto@v0.0.0-20261012220534-4341edf3f941`, `google.golang.org/genproto/googleapis/api@v0.0.0-20261110000943-09e21b237f2c`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20261110000943-09e21b237f2c`, `google.golang.org/grpc@v1.85.0`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260817212433-ac3dfec99bb1`, `github.com/go-piv/piv-go/v2@v2.6.0`.
 
 ~~~~text
                                  Apache License
@@ -1465,7 +1464,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### T19
 
-Carried by: `github.com/googleapis/gax-go/v2@v2.26.2`.
+Carried by: `github.com/googleapis/gax-go/v2@v2.27.0`.
 
 ~~~~text
 Copyright 2016, Google Inc.
@@ -1728,7 +1727,7 @@ SOFTWARE.
 
 ### T28
 
-Carried by: `github.com/labstack/echo/v4@v4.16.5`.
+Carried by: `github.com/labstack/echo/v4@v4.16.6`.
 
 ~~~~text
 The MIT License (MIT)
@@ -2317,7 +2316,7 @@ SOFTWARE.
 
 ### T45
 
-Carried by: `go.opentelemetry.io/contrib/detectors/gcp@v1.45.0`, `go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc@v0.68.0`, `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.69.0`, `go.opentelemetry.io/otel@v1.47.0`, `go.opentelemetry.io/otel/log@v1.47.0`, `go.opentelemetry.io/otel/metric@v1.47.0`, `go.opentelemetry.io/otel/sdk@v1.47.0`, `go.opentelemetry.io/otel/sdk/metric@v1.47.0`, `go.opentelemetry.io/otel/trace@v1.47.0`.
+Carried by: `go.opentelemetry.io/contrib/detectors/gcp@v1.47.0`, `go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc@v0.72.0`, `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@v0.72.0`, `go.opentelemetry.io/otel@v1.47.0`, `go.opentelemetry.io/otel/log@v1.47.0`, `go.opentelemetry.io/otel/metric@v1.47.0`, `go.opentelemetry.io/otel/sdk@v1.47.0`, `go.opentelemetry.io/otel/sdk/metric@v1.47.0`, `go.opentelemetry.io/otel/trace@v1.47.0`.
 
 ~~~~text
                                  Apache License
@@ -2555,7 +2554,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### T46
 
-Carried by: `google.golang.org/api@v0.307.0`.
+Carried by: `google.golang.org/api@v0.312.0`.
 
 ~~~~text
 Copyright (c) 2011 Google Inc. All rights reserved.
@@ -2904,7 +2903,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### T56
 
-Carried by: `github.com/klauspost/compress@v1.20.4`.
+Carried by: `github.com/klauspost/compress@v1.20.5`.
 
 ~~~~text
 Copyright (c) 2012 The Go Authors. All rights reserved.

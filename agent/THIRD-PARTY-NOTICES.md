@@ -15,7 +15,7 @@ licensed under the Apache License 2.0 (`LICENSE`); see `NOTICE`.
 | `github.com/creack/pty` | v1.1.24 | MIT | [T2](#t2) |
 | `github.com/fsnotify/fsnotify` | v1.10.1 | BSD-3-Clause | [T3](#t3) |
 | `github.com/google/uuid` | v1.6.0 | BSD-3-Clause | [T4](#t4) |
-| `github.com/klauspost/compress` | v1.20.4 | Apache-2.0 | [T5](#t5) |
+| `github.com/klauspost/compress` | v1.20.5 | Apache-2.0 | [T5](#t5) |
 | `github.com/ulikunitz/xz` | v0.5.17 | BSD-3-Clause | [T6](#t6) |
 | `github.com/warthog618/go-gpiocdev` | v0.10.0 | MIT | [T7](#t7) |
 | `golang.org/x/net` | v0.63.0 | BSD-3-Clause | [T1](#t1) |
@@ -161,7 +161,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### T5
 
-Carried by: `github.com/klauspost/compress@v1.20.4`.
+Carried by: `github.com/klauspost/compress@v1.20.5`.
 
 ~~~~text
 Copyright (c) 2012 The Go Authors. All rights reserved.
