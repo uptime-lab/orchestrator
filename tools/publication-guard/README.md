@@ -71,7 +71,10 @@ misuse. Commit modes check the lines a commit adds, the blobs it writes and
 its message; renames are not detected, so a file moved and edited in one
 commit is checked whole at its new path. Every diff is read with `--text
 --no-textconv --no-ext-diff`, so attributes already in the history cannot
-turn a change into "Binary files differ".
+turn a change into "Binary files differ". A path is read as git wrote it
+and then cleaned: the TAB git adds after a name with a space is dropped and
+a quoted name (one with a byte outside printable ASCII) is unquoted, so a
+file is judged by its own suffix and its own allow entries in every mode.
 
 ### Opting out of a documented false positive
 

@@ -15,6 +15,11 @@ first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ### Fixed
 
+- The publication guard's shape check, on a diff, read a file name with a
+  space in it with git's trailing TAB attached and did not read a quoted
+  (non-ASCII) name at all: the first was judged as prose whatever its
+  suffix, which reported property chains in the Postman collections as
+  host names; lines of the second were not checked.
 - The installer no longer prints git's "is not a commit" warning while it
   fetches the release.
 
