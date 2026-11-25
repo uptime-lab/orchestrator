@@ -41,15 +41,15 @@ License 1.0 (ALv2 future licence); see the repository's `LICENSE`.
 | `@react-types/shared` | 3.37.0 | Apache-2.0 | [T5](#t5) |
 | `@swc/helpers` | 0.5.15 | Apache-2.0 | [T8](#t8) |
 | `@tanstack/history` | 1.162.5 | MIT | [T9](#t9) |
-| `@tanstack/query-core` | 5.107.1 | MIT | [T9](#t9) |
-| `@tanstack/react-query` | 5.107.1 | MIT | [T9](#t9) |
+| `@tanstack/query-core` | 5.108.2 | MIT | [T9](#t9) |
+| `@tanstack/react-query` | 5.108.2 | MIT | [T9](#t9) |
 | `@tanstack/react-router` | 1.170.46 | MIT | [T9](#t9) |
-| `@tanstack/react-router-devtools` | 1.167.3 | MIT | [T9](#t9) |
+| `@tanstack/react-router-devtools` | 1.167.4 | MIT | [T9](#t9) |
 | `@tanstack/react-store` | 0.11.2 | MIT | [T10](#t10) |
 | `@tanstack/react-virtual` | 3.14.26 | MIT | [T9](#t9) |
 | `@tanstack/router-core` | 1.171.39 | MIT | [T9](#t9) |
-| `@tanstack/router-devtools` | 1.167.3 | MIT | [T9](#t9) |
-| `@tanstack/router-devtools-core` | 1.168.3 | MIT | [T9](#t9) |
+| `@tanstack/router-devtools` | 1.167.4 | MIT | [T9](#t9) |
+| `@tanstack/router-devtools-core` | 1.168.4 | MIT | [T9](#t9) |
 | `@tanstack/store` | 0.11.2 | MIT | [T10](#t10) |
 | `@tanstack/virtual-core` | 3.19.11 | MIT | [T9](#t9) |
 | `@types/d3-color` | 3.1.3 | MIT | [T11](#t11) |
@@ -98,41 +98,40 @@ License 1.0 (ALv2 future licence); see the repository's `LICENSE`.
 | `form-data` | 4.0.6 | MIT | [T33](#t33) |
 | `function-bind` | 1.1.2 | MIT | [T34](#t34) |
 | `get-intrinsic` | 1.2.6 | MIT | [T35](#t35) |
-| `goober` | 2.1.16 | MIT | [T36](#t36) |
-| `gopd` | 1.2.0 | MIT | [T37](#t37) |
-| `has-symbols` | 1.1.0 | MIT | [T38](#t38) |
-| `has-tostringtag` | 1.0.2 | MIT | [T39](#t39) |
-| `hasown` | 2.0.4 | MIT | [T40](#t40) |
-| `html-parse-stringify` | 4.0.1 | MIT | [T41](#t41) |
+| `gopd` | 1.2.0 | MIT | [T36](#t36) |
+| `has-symbols` | 1.1.0 | MIT | [T37](#t37) |
+| `has-tostringtag` | 1.0.2 | MIT | [T38](#t38) |
+| `hasown` | 2.0.4 | MIT | [T39](#t39) |
+| `html-parse-stringify` | 4.0.1 | MIT | [T40](#t40) |
 | `https-proxy-agent` | 5.0.1 | MIT | — |
-| `i18next` | 27.1.2 | MIT | [T42](#t42) |
-| `isbot` | 5.1.32 | Unlicense | [T43](#t43) |
+| `i18next` | 27.2.3 | MIT | [T41](#t41) |
+| `isbot` | 5.1.32 | Unlicense | [T42](#t42) |
 | `math-intrinsics` | 1.1.0 | MIT | [T29](#t29) |
-| `mime-db` | 1.52.0 | MIT | [T44](#t44) |
-| `mime-types` | 2.1.35 | MIT | [T45](#t45) |
-| `ms` | 2.1.3 | MIT | [T46](#t46) |
-| `property-expr` | 2.0.6 | MIT | [T47](#t47) |
-| `proxy-from-env` | 2.1.0 | MIT | [T48](#t48) |
-| `react` | 19.3.1 | MIT | [T49](#t49) |
+| `mime-db` | 1.52.0 | MIT | [T43](#t43) |
+| `mime-types` | 2.1.35 | MIT | [T44](#t44) |
+| `ms` | 2.1.3 | MIT | [T45](#t45) |
+| `property-expr` | 2.0.6 | MIT | [T46](#t46) |
+| `proxy-from-env` | 2.1.0 | MIT | [T47](#t47) |
+| `react` | 19.3.1 | MIT | [T48](#t48) |
 | `react-aria` | 3.53.1 | Apache-2.0 | [T5](#t5) |
-| `react-dom` | 19.3.1 | MIT | [T49](#t49) |
-| `react-hook-form` | 7.92.0 | MIT | [T50](#t50) |
-| `react-i18next` | 18.0.1 | MIT | [T51](#t51) |
+| `react-dom` | 19.3.1 | MIT | [T48](#t48) |
+| `react-hook-form` | 7.92.0 | MIT | [T49](#t49) |
+| `react-i18next` | 18.0.3 | MIT | [T50](#t50) |
 | `react-stately` | 3.51.0 | Apache-2.0 | [T5](#t5) |
-| `scheduler` | 0.28.0 | MIT | [T49](#t49) |
-| `seroval` | 1.8.2 | MIT | [T52](#t52) |
-| `seroval-plugins` | 1.8.0 | MIT | [T52](#t52) |
-| `style-mod` | 4.1.5 | MIT | [T53](#t53) |
-| `tabbable` | 6.2.0 | MIT | [T54](#t54) |
+| `scheduler` | 0.28.0 | MIT | [T48](#t48) |
+| `seroval` | 1.8.2 | MIT | [T51](#t51) |
+| `seroval-plugins` | 1.8.0 | MIT | [T51](#t51) |
+| `style-mod` | 4.1.5 | MIT | [T52](#t52) |
+| `tabbable` | 6.2.0 | MIT | [T53](#t53) |
 | `tailwind-clip-path` | 1.0.0 | ISC | — |
 | `tiny-case` | 1.0.3 | MIT | — |
-| `toposort` | 2.0.2 | MIT | [T55](#t55) |
-| `tslib` | 2.8.1 | 0BSD | [T56](#t56) |
+| `toposort` | 2.0.2 | MIT | [T54](#t54) |
+| `tslib` | 2.8.1 | 0BSD | [T55](#t55) |
 | `type-fest` | 2.19.0 | (MIT OR CC0-1.0) | — |
-| `use-sync-external-store` | 1.6.0 | MIT | [T49](#t49) |
-| `w3c-keyname` | 2.2.8 | MIT | [T57](#t57) |
-| `yup` | 1.7.1 | MIT | [T47](#t47) |
-| `zustand` | 4.5.7 | MIT | [T58](#t58) |
+| `use-sync-external-store` | 1.6.0 | MIT | [T48](#t48) |
+| `w3c-keyname` | 2.2.8 | MIT | [T56](#t56) |
+| `yup` | 1.7.1 | MIT | [T46](#t46) |
+| `zustand` | 4.5.7 | MIT | [T57](#t57) |
 
 Components that ship no licence file of their own:
 
@@ -148,8 +147,8 @@ Components that ship no licence file of their own:
 
 | Component | Version | Licence | Texts |
 |---|---|---|---|
-| `Feather icons` | designs | MIT | [T59](#t59) |
-| `Heroicons` | designs | MIT | [T60](#t60) |
+| `Feather icons` | designs | MIT | [T58](#t58) |
+| `Heroicons` | designs | MIT | [T59](#t59) |
 
 ## Other attributions
 
@@ -754,7 +753,7 @@ limitations under the License.
 
 ### T9
 
-Carried by: `@tanstack/history@1.162.5`, `@tanstack/query-core@5.107.1`, `@tanstack/react-query@5.107.1`, `@tanstack/react-router@1.170.46`, `@tanstack/react-router-devtools@1.167.3`, `@tanstack/react-virtual@3.14.26`, `@tanstack/router-core@1.171.39`, `@tanstack/router-devtools@1.167.3`, `@tanstack/router-devtools-core@1.168.3`, `@tanstack/virtual-core@3.19.11`.
+Carried by: `@tanstack/history@1.162.5`, `@tanstack/query-core@5.108.2`, `@tanstack/react-query@5.108.2`, `@tanstack/react-router@1.170.46`, `@tanstack/react-router-devtools@1.167.4`, `@tanstack/react-virtual@3.14.26`, `@tanstack/router-core@1.171.39`, `@tanstack/router-devtools@1.167.4`, `@tanstack/router-devtools-core@1.168.4`, `@tanstack/virtual-core@3.19.11`.
 
 ~~~~text
 MIT License
@@ -1455,34 +1454,6 @@ SOFTWARE.
 
 ### T36
 
-Carried by: `goober@2.1.16`.
-
-~~~~text
-MIT License
-
-Copyright (c) 2019 Cristian Bote
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-~~~~
-
-### T37
-
 Carried by: `gopd@1.2.0`.
 
 ~~~~text
@@ -1509,7 +1480,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T38
+### T37
 
 Carried by: `has-symbols@1.1.0`.
 
@@ -1537,7 +1508,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T39
+### T38
 
 Carried by: `has-tostringtag@1.0.2`.
 
@@ -1565,7 +1536,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T40
+### T39
 
 Carried by: `hasown@2.0.4`.
 
@@ -1593,7 +1564,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T41
+### T40
 
 Carried by: `html-parse-stringify@4.0.1`.
 
@@ -1622,9 +1593,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T42
+### T41
 
-Carried by: `i18next@27.1.2`.
+Carried by: `i18next@27.2.3`.
 
 ~~~~text
 The MIT License (MIT)
@@ -1650,7 +1621,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T43
+### T42
 
 Carried by: `isbot@5.1.32`.
 
@@ -1683,7 +1654,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 ~~~~
 
-### T44
+### T43
 
 Carried by: `mime-db@1.52.0`.
 
@@ -1713,7 +1684,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ~~~~
 
-### T45
+### T44
 
 Carried by: `mime-types@2.1.35`.
 
@@ -1743,7 +1714,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ~~~~
 
-### T46
+### T45
 
 Carried by: `ms@2.1.3`.
 
@@ -1771,7 +1742,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T47
+### T46
 
 Carried by: `property-expr@2.0.6`, `yup@1.7.1`.
 
@@ -1799,7 +1770,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T48
+### T47
 
 Carried by: `proxy-from-env@2.1.0`.
 
@@ -1826,7 +1797,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ~~~~
 
-### T49
+### T48
 
 Carried by: `react@19.3.1`, `react-dom@19.3.1`, `scheduler@0.28.0`, `use-sync-external-store@1.6.0`.
 
@@ -1854,7 +1825,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T50
+### T49
 
 Carried by: `react-hook-form@7.92.0`.
 
@@ -1882,9 +1853,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T51
+### T50
 
-Carried by: `react-i18next@18.0.1`.
+Carried by: `react-i18next@18.0.3`.
 
 ~~~~text
 The MIT License (MIT)
@@ -1910,7 +1881,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T52
+### T51
 
 Carried by: `seroval@1.8.2`, `seroval-plugins@1.8.0`.
 
@@ -1924,7 +1895,7 @@ The above copyright notice and this permission notice (including the next paragr
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ~~~~
 
-### T53
+### T52
 
 Carried by: `style-mod@4.1.5`.
 
@@ -1950,7 +1921,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ~~~~
 
-### T54
+### T53
 
 Carried by: `tabbable@6.2.0`.
 
@@ -1978,7 +1949,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T55
+### T54
 
 Carried by: `toposort@2.0.2`.
 
@@ -2005,7 +1976,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ~~~~
 
-### T56
+### T55
 
 Carried by: `tslib@2.8.1`.
 
@@ -2024,7 +1995,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ~~~~
 
-### T57
+### T56
 
 Carried by: `w3c-keyname@2.2.8`.
 
@@ -2050,7 +2021,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ~~~~
 
-### T58
+### T57
 
 Carried by: `zustand@4.5.7`.
 
@@ -2078,7 +2049,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T59
+### T58
 
 Carried by: `Feather icons@designs`.
 
@@ -2106,7 +2077,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### T60
+### T59
 
 Carried by: `Heroicons@designs`.
 
