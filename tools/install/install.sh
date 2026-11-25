@@ -24,7 +24,8 @@
 #   public  from the internet, by a DNS name that points here, over HTTPS
 #           with a Let's Encrypt certificate.
 #
-# Every question has a flag, so the script also runs unattended:
+# A wrong answer to a question is asked again with the reason; a wrong flag
+# ends the run. Every question has a flag, so the script also runs unattended:
 #
 #   --mode lan|public        how the server is reached
 #   --address NAME_OR_IP     lan: what devices and browsers will call it
@@ -489,10 +490,34 @@ choose_mode() {
     say "     HTTPS with a Let's Encrypt certificate. Needs a DNS name that"
     say "     already points at this machine, and ports 80, 443 and 50051 open."
     say ""
-    ask _choice "Choose 1 or 2" 1
-    case "$_choice" in 1|lan) MODE=lan ;; 2|public) MODE=public ;; *) die "answer 1 or 2" ;; esac
+    # A wrong answer to a question is asked again; a wrong flag ends the run.
+    # The loop ends by itself when the terminal has no more answers: ask dies.
+    while :; do
+      ask _choice "Choose 1 or 2" 1
+      case "$_choice" in
+        1|lan) MODE=lan; break ;;
+        2|public) MODE=public; break ;;
+        *) say "Answer 1 or 2." ;;
+      esac
+    done
   fi
   case "$MODE" in lan|public) ;; *) die "--mode is lan or public" ;; esac
+}
+
+# refuse_bad_lan_address — every refusal of $ADDRESS. They come before any
+# advice about the address: advice to reserve an address that is then
+# refused reads as an instruction.
+refuse_bad_lan_address() {
+  if [ -z "$ADDRESS" ]; then
+    die "the devices need a name or an address to reach this server by"
+  elif valid_ipv4 "$ADDRESS"; then
+    :
+  elif is_mdns_name "$ADDRESS"; then
+    die "$ADDRESS is a multicast (.local) name: a computer resolves it, the bootloader of a Raspberry Pi does not. Use the name your router gives this machine, or its address"
+  elif ! valid_hostname "$ADDRESS"; then
+    die "$ADDRESS is neither an IPv4 address nor a DNS name with a dot in it"
+  fi
+  check_lan_address
 }
 
 choose_lan_address() {
@@ -510,39 +535,35 @@ choose_lan_address() {
     say "into the bootloader of every device set up for network boot. If it stops"
     say "leading to this machine, those devices lose their server."
     say ""
+    _suggested=$_ip
     if [ -n "$_name" ]; then
       say "Your router gives this machine the name: $_name"
       say "A name follows the machine if its address changes, so it is the better"
       say "choice — on a network where the router hands out names. Devices look it"
       say "up through the router every time they start."
       say "This machine's address is: $_ip"
-      ask ADDRESS "Name or address the devices should use" "$_name"
+      _suggested=$_name
     elif [ -n "$_ip" ] && [ -n "$_stale" ]; then
       say "This machine's address is: $_ip"
       say "Your router calls it $_stale_name, but that name also resolves to"
       say "${_stale}which is not this machine (often a record the router kept"
       say "from an old lease). A device given that answer would not find this"
       say "server, so the address itself is what devices will use."
-      ask ADDRESS "Name or address the devices should use" "$_ip"
     elif [ -n "$_ip" ]; then
       say "This machine's address is: $_ip"
       say "Your router does not give it a name that resolves back to it, so the"
       say "address itself is what devices will use."
-      ask ADDRESS "Name or address the devices should use" "$_ip"
-    else
-      ask ADDRESS "Name or address the devices should use"
     fi
+    # The refusals end the shell they run in, so a typed answer is judged in
+    # a subshell: the reason is printed and the question asked again.
+    while :; do
+      ask ADDRESS "Name or address the devices should use" "$_suggested"
+      if (refuse_bad_lan_address); then break; fi
+      ADDRESS=""
+    done
+  else
+    refuse_bad_lan_address
   fi
-  # Every refusal comes before any advice about the address: advice to
-  # reserve an address that is then refused reads as an instruction.
-  if valid_ipv4 "$ADDRESS"; then
-    :
-  elif is_mdns_name "$ADDRESS"; then
-    die "$ADDRESS is a multicast (.local) name: a computer resolves it, the bootloader of a Raspberry Pi does not. Use the name your router gives this machine, or its address"
-  elif ! valid_hostname "$ADDRESS"; then
-    die "$ADDRESS is neither an IPv4 address nor a DNS name with a dot in it"
-  fi
-  check_lan_address
   if valid_ipv4 "$ADDRESS"; then
     say ""
     say "IMPORTANT: reserve $ADDRESS for this machine in your router's DHCP"
@@ -559,15 +580,39 @@ choose_lan_address() {
   fi
 }
 
-choose_public_name() {
-  [ -n "$DOMAIN" ] || ask DOMAIN "DNS name that points at this machine (for example orchestrator.example.com)"
+refuse_bad_public_name() {
   valid_hostname "$DOMAIN" || die "$DOMAIN is not a DNS name"
-  is_mdns_name "$DOMAIN" && die "$DOMAIN is a local-only name; a public install needs a name the internet resolves"
+  if is_mdns_name "$DOMAIN"; then
+    die "$DOMAIN is a local-only name; a public install needs a name the internet resolves"
+  fi
+}
+
+# public_name_resolves — says where the name leads; status 1, with the
+# warning, when it leads nowhere yet.
+public_name_resolves() {
   _resolved=$(getent ahostsv4 "$DOMAIN" 2>/dev/null | awk '{print $1; exit}')
   if [ -z "$_resolved" ]; then
     warn "$DOMAIN does not resolve yet. Let's Encrypt cannot issue a certificate until it points at this machine."
+    return 1
+  fi
+  say "$DOMAIN resolves to $_resolved — that must be this machine's public address."
+}
+
+choose_public_name() {
+  if [ -n "$DOMAIN" ]; then
+    refuse_bad_public_name
+    public_name_resolves || true
   else
-    say "$DOMAIN resolves to $_resolved — that must be this machine's public address."
+    # A typed name is asked again when it is refused, and when it resolves
+    # nowhere and that was not meant.
+    while :; do
+      ask DOMAIN "DNS name that points at this machine (for example orchestrator.example.com)"
+      if ! (refuse_bad_public_name); then DOMAIN=""; continue; fi
+      public_name_resolves && break
+      ask _choice "Use $DOMAIN anyway, and point it here before the first sign-in? (y/n)" n
+      case "$_choice" in y|Y|yes) break ;; esac
+      DOMAIN=""
+    done
   fi
   if [ -z "$EMAIL" ] && [ "$ASSUME_YES" -eq 0 ]; then
     ask EMAIL "Email address for Let's Encrypt expiry notices (empty for none)" ""
@@ -585,8 +630,14 @@ choose_netboot() {
     say "a recovery image (about 100 MB, downloaded now) and a signing key that"
     say "is generated on this machine and never leaves it."
     say "Without it you can still adopt devices that already run an OS."
-    ask _choice "Set up network boot? (y/n)" y
-    case "$_choice" in y|Y|yes) NETBOOT=yes ;; n|N|no) NETBOOT=no ;; *) die "answer y or n" ;; esac
+    while :; do
+      ask _choice "Set up network boot? (y/n)" y
+      case "$_choice" in
+        y|Y|yes) NETBOOT=yes; break ;;
+        n|N|no) NETBOOT=no; break ;;
+        *) say "Answer y or n." ;;
+      esac
+    done
   fi
   case "$NETBOOT" in yes|no) ;; *) die "--netboot is yes or no" ;; esac
   [ "$NETBOOT" = yes ] && check_recovery_image
@@ -609,7 +660,11 @@ choose_owner() {
     say ""
     say "The installer creates the owner account of this server itself, before"
     say "the server can be reached from the network, so nobody else can claim it."
-    ask OWNER_EMAIL "Email address the owner signs in with" "$EMAIL"
+    while :; do
+      ask OWNER_EMAIL "Email address the owner signs in with" "$EMAIL"
+      valid_email "$OWNER_EMAIL" && break
+      say "${OWNER_EMAIL:-An empty answer} is not an email address."
+    done
   fi
   valid_email "$OWNER_EMAIL" || die "$OWNER_EMAIL is not an email address"
 }
@@ -915,7 +970,14 @@ fetch_release() {
     [ -f "$DIR/$COMPOSE_FILE" ] || die "$DIR exists and is not a checkout of the release"
     check_checkout "$DIR"
   else
-    git -c advice.detachedHead=false clone --quiet --branch "platform-v$VERSION" "$REPO_URL" "$DIR"
+    # Cloned without a checkout, then the tag's commit checked out: `clone
+    # --branch` on an annotated tag prints "is not a commit" on some git
+    # versions, which reads as a failure in the first minute of an install.
+    git clone --quiet --no-checkout "$REPO_URL" "$DIR"
+    if ! git -C "$DIR" -c advice.detachedHead=false checkout --quiet "refs/tags/platform-v$VERSION^{commit}"; then
+      rm -rf "$DIR"
+      die "$REPO_URL has no tag platform-v$VERSION"
+    fi
     DIR=$(cd "$DIR" && pwd -P)
     STATE="$DIR/data/.installer"
   fi
@@ -1332,8 +1394,16 @@ main() {
   preflight
   if [ "$ASSUME_YES" -eq 0 ]; then
     say ""
-    ask _go "Install now? (y/n)" y
-    case "$_go" in y|Y|yes) ;; *) die "nothing was changed" ;; esac
+    while :; do
+      ask _go "Install now? (y/n)" y
+      case "$_go" in
+        y|Y|yes) break ;;
+        # A decision, not a fault: no ERROR, but still a non-zero status, so
+        # a command chained after the installer does not run.
+        n|N|no) say "Nothing was changed."; exit 1 ;;
+        *) say "Answer y or n." ;;
+      esac
+    done
   fi
   ensure_packages
   fetch_release
