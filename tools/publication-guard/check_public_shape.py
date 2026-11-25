@@ -663,6 +663,33 @@ def git_bytes(repo: Path, *args: str) -> bytes:
 DIFF_ARGS = ("--text", "--no-textconv", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", "--no-relative")
 
 DIFF_FILE_RE = re.compile(r"^\+\+\+ b/(.*)$")
+DIFF_QUOTED_FILE_RE = re.compile(r'^\+\+\+ "b/(.*)"$')
+QUOTED_ESCAPE_RE = re.compile(rb"\\([0-7]{3}|.)")
+QUOTED_ESCAPES = {b"a": b"\a", b"b": b"\b", b"t": b"\t", b"n": b"\n", b"v": b"\v", b"f": b"\f", b"r": b"\r"}
+
+
+def diff_file_path(raw: str) -> str | None:
+    """The path a `+++` header names, with git's decorations undone.
+
+    git writes a TAB after a name that contains a space, and quotes a name
+    with a byte outside printable ASCII (octal escapes, C style). Taken as
+    written, such a path has no recognisable suffix and matches no allow
+    entry, so a JSON file with a space in its name was judged as prose and a
+    file with a non-ASCII name was not attributed to itself at all.
+    """
+    m = DIFF_QUOTED_FILE_RE.match(raw)
+    if m:
+        def unescape(e: re.Match[bytes]) -> bytes:
+            body = e.group(1)
+            if len(body) == 3:
+                return bytes([int(body, 8)])
+            return QUOTED_ESCAPES.get(body, body)
+
+        return QUOTED_ESCAPE_RE.sub(unescape, m.group(1).encode("utf-8")).decode("utf-8", errors="replace")
+    m = DIFF_FILE_RE.match(raw)
+    if m:
+        return m.group(1)[:-1] if m.group(1).endswith("\t") else m.group(1)
+    return None
 HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
@@ -670,16 +697,25 @@ def scan_added_lines(scanner: Scanner, diff: str, path_prefix: str = "") -> None
     """Walk a unified diff and check only the lines a change introduces."""
     path: str | None = None
     lineno = 0
+    # `+++ ` and `--- ` are headers only between a file's `diff --git` line
+    # and its first hunk; inside a hunk they are an added line that begins
+    # with `++ ` and a removed one that begins with `-- `.
+    in_header = True
     for raw in diff.splitlines():
-        m = DIFF_FILE_RE.match(raw)
-        if m:
-            path = m.group(1)
-            continue
-        if raw.startswith("--- "):
+        if raw.startswith("diff --git "):
+            in_header = True
+            path = None
             continue
         m = HUNK_RE.match(raw)
         if m:
+            in_header = False
             lineno = int(m.group(1))
+            continue
+        if in_header:
+            if raw.startswith("+++ "):
+                # A header that names no readable path (`+++ /dev/null`)
+                # leaves the file unnamed rather than keeping the previous one.
+                path = diff_file_path(raw)
             continue
         if path is None:
             continue

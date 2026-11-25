@@ -335,6 +335,47 @@ class Modes(unittest.TestCase):
             self.assertEqual(1, code)
             self.assertIn("b.md:1:mac-real-oui", out)
 
+    def test_diff_modes_read_a_path_with_a_space_and_a_quoted_path(self) -> None:
+        # git writes a TAB after a name with a space and quotes a non-ASCII
+        # one. Read as written, the first has no `.json` suffix, so a property
+        # chain in it (`response.data.id`) is judged as prose and reported as
+        # a host; the second names no file at all.
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com",
+                   "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.com"}
+
+            def g(*a: str) -> None:
+                subprocess.run(["git", "-C", tmp, *a], check=True, capture_output=True, env=env)
+
+            g("init", "-q")
+            (repo / "seed.md").write_text("clean\n", encoding="utf-8")
+            g("add", "-A")
+            g("commit", "-q", "-m", "first")
+            spaced = "API tests - nodes.json"
+            (repo / spaced).write_text('"pm.environment.set(\'id\', response.data.id);",\n', encoding="utf-8")
+            g("add", "-A")
+            code, out, err = self.run_cli("--staged", "--repo", tmp)
+            self.assertEqual((0, ""), (code, out), err)
+            g("commit", "-q", "-m", "a collection")
+            code, out, err = self.run_cli("--commit", "HEAD", "--repo", tmp)
+            self.assertEqual((0, ""), (code, out), err)
+            code, out, err = self.run_cli("--range", "HEAD~1..HEAD", "--repo", tmp)
+            self.assertEqual((0, ""), (code, out), err)
+
+            # A real finding in both kinds of file is reported under the
+            # file's own name, with no TAB and no quoting left in it.
+            (repo / spaced).write_text(f'"{PRIVATE_IP}"\n', encoding="utf-8")
+            unicode_name = "заметки.md"
+            (repo / unicode_name).write_text(f"see {LINUX_HOME}\n", encoding="utf-8")
+            # A line that begins with `++ ` inside a hunk is content, not a header.
+            (repo / "seed.md").write_text(f"clean\n++ b/elsewhere.md\nnode {REAL_SERIAL}\n", encoding="utf-8")
+            g("add", "-A")
+            code, out, err = self.run_cli("--staged", "--repo", tmp)
+            self.assertEqual(1, code, err)
+            self.assertEqual({f"{spaced}:1:private-ip", f"{unicode_name}:1:home-path", "seed.md:3:serial-shape"},
+                             {line.rsplit(":", 1)[0] for line in out.splitlines()})
+
     def test_a_range_honours_the_allow_file_its_tip_commits(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
