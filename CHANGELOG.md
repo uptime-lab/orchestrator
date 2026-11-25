@@ -6,8 +6,14 @@ first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0
 
 ## Unreleased
 
+## platform-v0.2.1 — 2026-11-25
+
+Nothing to do on upgrade beyond the steps of `docs/INSTALL.md`, "Upgrading".
+
 ### Changed
 
+- Dependencies: eight Go modules of the backend and the agent, eight
+  frontend packages (minor and patch versions) and the build images.
 - The installer asks a question again when the answer is refused, with the
   reason, instead of ending; a wrong flag still ends the run. Declining at
   "Install now?" is no longer printed as an error. In the public shape a
